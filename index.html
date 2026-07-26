@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#161923">
+  <meta name="description" content="Creador local y serverless de bloques de adversarios y ambientes compatibles con Daggerheart.">
+  <title>Forja de Bloques | Daggerheart</title>
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Inicio">
+        <span class="brand-mark" aria-hidden="true">◆</span>
+        <span>
+          <strong>Forja de Bloques</strong>
+          <small>Compatible con Daggerheart · herramienta no oficial</small>
+        </span>
+      </a>
+
+      <nav class="toolbar" aria-label="Acciones del documento">
+        <button class="tool-button" type="button" data-global-action="new" title="Crear un bloque nuevo">
+          <span aria-hidden="true">＋</span><span>Nuevo</span>
+        </button>
+        <button class="tool-button" type="button" data-global-action="save" title="Guardar localmente en este navegador">
+          <span aria-hidden="true">◇</span><span>Guardar</span>
+        </button>
+        <button class="tool-button" type="button" data-global-action="library" title="Abrir biblioteca local">
+          <span aria-hidden="true">▤</span><span>Biblioteca</span>
+        </button>
+        <span class="toolbar-separator" aria-hidden="true"></span>
+        <button class="tool-button" type="button" data-global-action="import-json" title="Importar un archivo JSON">
+          <span aria-hidden="true">⇧</span><span>Importar</span>
+        </button>
+        <button class="tool-button" type="button" data-global-action="export-json" title="Descargar los datos como JSON">
+          <span aria-hidden="true">⇩</span><span>JSON</span>
+        </button>
+        <button class="tool-button primary" type="button" data-global-action="export-png" title="Descargar el bloque como imagen PNG">
+          <span aria-hidden="true">▣</span><span>PNG</span>
+        </button>
+        <button class="tool-button primary" type="button" data-global-action="export-pdf" title="Descargar el bloque como PDF">
+          <span aria-hidden="true">▱</span><span>PDF</span>
+        </button>
+      </nav>
+    </header>
+
+    <main class="workspace">
+      <aside class="editor-panel" aria-label="Editor del bloque">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">TIPO DE BLOQUE</p>
+            <div class="kind-switch" role="tablist" aria-label="Tipo de bloque">
+              <button type="button" role="tab" data-kind="environment">Ambiente</button>
+              <button type="button" role="tab" data-kind="adversary">Adversario</button>
+            </div>
+          </div>
+          <button class="icon-button" type="button" data-global-action="load-example" title="Cargar ejemplo" aria-label="Cargar ejemplo">✦</button>
+        </div>
+
+        <form id="editorForm" autocomplete="off"></form>
+      </aside>
+
+      <section class="preview-panel" aria-label="Vista previa">
+        <div class="preview-toolbar">
+          <div>
+            <p class="eyebrow">VISTA PREVIA</p>
+            <p id="previewMeta">El bloque se actualiza en tiempo real</p>
+          </div>
+          <label class="resolution-control">
+            <span>Exportación</span>
+            <select id="exportScale" aria-label="Resolución de exportación">
+              <option value="1">Estándar · 1120 px</option>
+              <option value="2" selected>Alta · 2240 px</option>
+              <option value="3">Impresión · 3360 px</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="canvas-stage" id="canvasStage">
+          <div class="canvas-glow" aria-hidden="true"></div>
+          <canvas id="statblockCanvas" role="img" aria-label="Vista previa del bloque"></canvas>
+        </div>
+
+        <div class="privacy-note">
+          <span aria-hidden="true">◈</span>
+          <p><strong>Todo queda en tu dispositivo.</strong> Las imágenes, textos y exportaciones se procesan dentro del navegador; esta aplicación no usa servidor ni sube archivos.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>Herramienta fan-made y no oficial. No está afiliada, patrocinada ni respaldada por Darrington Press.</p>
+      <p>Diseño original inspirado en la claridad editorial de los materiales de Daggerheart.</p>
+    </footer>
+  </div>
+
+  <dialog id="libraryDialog" class="library-dialog">
+    <div class="dialog-header">
+      <div>
+        <p class="eyebrow">ALMACENAMIENTO LOCAL</p>
+        <h2>Tu biblioteca</h2>
+      </div>
+      <button class="icon-button" type="button" data-dialog-action="close" aria-label="Cerrar">×</button>
+    </div>
+    <div id="libraryList" class="library-list"></div>
+    <div class="dialog-footer">
+      <p>Los elementos se guardan únicamente en este navegador.</p>
+      <button class="secondary-button danger" type="button" data-dialog-action="clear">Vaciar biblioteca</button>
+    </div>
+  </dialog>
+
+  <dialog id="confirmDialog" class="confirm-dialog">
+    <h2 id="confirmTitle">Confirmar</h2>
+    <p id="confirmMessage"></p>
+    <div class="confirm-actions">
+      <button class="secondary-button" type="button" data-confirm="cancel">Cancelar</button>
+      <button class="primary-button danger" type="button" data-confirm="accept">Confirmar</button>
+    </div>
+  </dialog>
+
+  <input id="jsonFileInput" type="file" accept="application/json,.json" hidden>
+  <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>

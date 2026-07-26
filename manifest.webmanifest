@@ -1,0 +1,14 @@
+{
+  "name": "Forja de Bloques Daggerheart",
+  "short_name": "Forja DH",
+  "description": "Creador serverless de bloques de adversarios y ambientes compatibles con Daggerheart.",
+  "lang": "es-CL",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#10121a",
+  "theme_color": "#161923",
+  "icons": [
+    {"src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}
