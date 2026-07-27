@@ -1,0 +1,103 @@
+{
+  "app": "Forja de Bloques Daggerheart",
+  "version": 2,
+  "block": {
+    "kind": "adversary",
+    "title": "Jabalí de la caverna sagrada",
+    "tier": 1,
+    "type": "Bruto",
+    "description": "Un jabalí enorme que se alimenta de hongos luminosos y protege las cavernas donde descansa su manada.",
+    "motives": [
+      "Embestir al intruso más cercano",
+      "Defender a su manada",
+      "Huir cuando queda gravemente herido"
+    ],
+    "difficulty": 13,
+    "thresholds": {
+      "major": 7,
+      "severe": 14
+    },
+    "hp": 7,
+    "stress": 3,
+    "attackModifier": 2,
+    "attack": {
+      "name": "Colmillos",
+      "range": "Cuerpo a cuerpo",
+      "damage": "1d10+3 físico"
+    },
+    "experiences": [
+      {
+        "name": "Olfato cavernario",
+        "modifier": 2
+      }
+    ],
+    "ingredients": [
+      {
+        "name": "Leche de jabalí de cueva",
+        "flavors": [
+          {
+            "flavor": "Salado",
+            "potency": 1
+          },
+          {
+            "flavor": "Umami",
+            "potency": 1
+          }
+        ],
+        "feature": {
+          "name": "",
+          "text": ""
+        }
+      },
+      {
+        "name": "Leche de vaca sagrada",
+        "flavors": [
+          {
+            "flavor": "Raro",
+            "potency": 1
+          }
+        ],
+        "feature": {
+          "name": "Última gota",
+          "text": "Cuando tienes solo un dado remanente al cocinar, lánzalo y agrega el resultado al poder del plato."
+        }
+      },
+      {
+        "name": "Lengua de dragón",
+        "flavors": [
+          {
+            "flavor": "Ácido",
+            "potency": 1
+          },
+          {
+            "flavor": "Umami",
+            "potency": 2
+          },
+          {
+            "flavor": "Raro",
+            "potency": 1
+          }
+        ],
+        "feature": {
+          "name": "",
+          "text": ""
+        }
+      }
+    ],
+    "features": [
+      {
+        "name": "Carga demoledora",
+        "type": "Acción",
+        "text": "Muévete hasta alcance Cerca en línea recta y realiza un ataque contra una criatura. Si impacta, el objetivo queda Vulnerable.",
+        "bullets": []
+      }
+    ],
+    "imageDataUrl": "",
+    "imageName": "",
+    "imageHeight": 340,
+    "imageZoom": 1,
+    "imagePositionX": 50,
+    "imagePositionY": 50,
+    "currentId": null
+  }
+}

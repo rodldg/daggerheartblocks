@@ -1,5 +1,7 @@
 # Forja de Bloques para Daggerheart
 
+Versión 2: incorpora botín culinario e ingredientes para adversarios.
+
 Aplicación web estática y serverless para diseñar bloques de **ambientes** y **adversarios** compatibles con Daggerheart. Está pensada para publicarse directamente en GitHub Pages (`github.io`) y no necesita backend, base de datos ni proceso de compilación.
 
 ## Funciones principales
@@ -9,7 +11,10 @@ Aplicación web estática y serverless para diseñar bloques de **ambientes** y 
 - Imagen superior opcional con controles de altura, zoom y punto focal.
 - Descripción corta de hasta 200 caracteres.
 - Hasta 20 impulsos o tácticas, con 100 caracteres por entrada.
-- Listas dinámicas de adversarios potenciales, experiencias y rasgos.
+- Listas dinámicas de adversarios potenciales, experiencias, ingredientes y rasgos.
+- Hasta 10 ingredientes por adversario, cada uno con 1 a 3 sabores y potencia de 1 a 3.
+- Dados de sabor integrados: Dulce d4, Salado d6, Amargo d8, Ácido d10, Umami d12 y Raro d20.
+- Rasgo culinario opcional por ingrediente.
 - Exportación local a PNG, PDF de una página y JSON.
 - Importación de JSON.
 - Biblioteca local en `localStorage`.
@@ -59,6 +64,8 @@ Luego abre `http://localhost:8000`.
 ├── icon.svg
 ├── .nojekyll
 ├── LICENSE
+├── CHANGELOG.md
+├── ejemplo_adversario_ingredientes.json
 └── README.md
 ```
 
@@ -73,3 +80,29 @@ El PDF se genera completamente en JavaScript, incrustando una imagen JPEG de alt
 ## Aviso
 
 Proyecto fan-made y no oficial. No está afiliado, patrocinado ni respaldado por Darrington Press. No se incluyen logotipos, ilustraciones ni recursos propietarios oficiales. Verifica los términos de la licencia comunitaria correspondiente antes de distribuir material compatible con Daggerheart.
+
+
+## Estructura de ingredientes en JSON
+
+Los ingredientes se almacenan dentro de un adversario usando esta estructura:
+
+```json
+{
+  "ingredients": [
+    {
+      "name": "Lengua de dragón",
+      "flavors": [
+        { "flavor": "Ácido", "potency": 1 },
+        { "flavor": "Umami", "potency": 2 },
+        { "flavor": "Raro", "potency": 1 }
+      ],
+      "feature": {
+        "name": "Última gota",
+        "text": "Descripción opcional del rasgo culinario."
+      }
+    }
+  ]
+}
+```
+
+El archivo `ejemplo_adversario_ingredientes.json` puede importarse directamente desde la interfaz para revisar el formato.

@@ -1,13 +1,24 @@
 "use strict";
 
-const APP_VERSION = 1;
+const APP_VERSION = 2;
 const AUTOSAVE_KEY = "forja-daggerheart-autosave-v1";
 const LIBRARY_KEY = "forja-daggerheart-library-v1";
 const MAX_IMPULSES = 20;
 const MAX_FEATURES = 30;
 const MAX_POTENTIAL_ADVERSARIES = 20;
 const MAX_EXPERIENCES = 12;
+const MAX_INGREDIENTS = 10;
+const MAX_INGREDIENT_FLAVORS = 3;
 const LOGICAL_WIDTH = 1120;
+
+const FLAVORS = [
+  { name: "Dulce", die: "d4" },
+  { name: "Salado", die: "d6" },
+  { name: "Amargo", die: "d8" },
+  { name: "Ácido", die: "d10" },
+  { name: "Umami", die: "d12" },
+  { name: "Raro", die: "d20" },
+];
 
 const PALETTE = {
   background: "#d7d0c4",
@@ -86,6 +97,28 @@ const EXAMPLES = {
     attackModifier: 3,
     attack: { name: "Garras", range: "Muy Cerca", damage: "1d12+2 físico" },
     experiences: [{ name: "Sentido sísmico", modifier: 2 }],
+    ingredients: [
+      {
+        name: "Saco ácido del excavador",
+        flavors: [
+          { flavor: "Ácido", potency: 2 },
+          { flavor: "Umami", potency: 1 },
+          { flavor: "Raro", potency: 1 },
+        ],
+        feature: {
+          name: "Catalizador corrosivo",
+          text: "Al usar este ingrediente, puedes reducir en 1 la dificultad de una prueba de cocina relacionada con conservar, ablandar o disolver.",
+        },
+      },
+      {
+        name: "Carne de madriguera",
+        flavors: [
+          { flavor: "Salado", potency: 1 },
+          { flavor: "Umami", potency: 2 },
+        ],
+        feature: { name: "", text: "" },
+      },
+    ],
     features: [
       {
         name: "Implacable (3)",
@@ -139,6 +172,7 @@ const EMPTY = {
     description: "",
     motives: [""],
     experiences: [{ name: "", modifier: 2 }],
+    ingredients: [],
     features: [{ name: "", type: "Pasiva", text: "", bullets: [] }],
   },
 };
@@ -256,8 +290,44 @@ function normalizeDraft(raw, kind) {
       modifier: numericValue(item?.modifier, 2, -20, 20),
     }));
     if (!draft.experiences.length) draft.experiences = [{ name: "", modifier: 2 }];
+    const rawIngredients = Object.prototype.hasOwnProperty.call(value, "ingredients") ? value.ingredients : [];
+    draft.ingredients = arrayValue(rawIngredients).slice(0, MAX_INGREDIENTS).map((item) => normalizeIngredient(item));
   }
   return draft;
+}
+
+function normalizeIngredient(raw) {
+  const item = raw && typeof raw === "object" ? raw : {};
+  const seen = new Set();
+  const flavors = arrayValue(item.flavors)
+    .map((entry) => {
+      const requested = stringValue(entry?.flavor);
+      const flavor = FLAVORS.some((option) => option.name === requested) ? requested : "Dulce";
+      return { flavor, potency: numericValue(entry?.potency, 1, 1, 3) };
+    })
+    .filter((entry) => {
+      if (seen.has(entry.flavor)) return false;
+      seen.add(entry.flavor);
+      return true;
+    })
+    .slice(0, MAX_INGREDIENT_FLAVORS);
+  if (!flavors.length) flavors.push({ flavor: "Dulce", potency: 1 });
+  return {
+    name: stringValue(item.name).slice(0, 100),
+    flavors,
+    feature: {
+      name: stringValue(item.feature?.name).slice(0, 90),
+      text: stringValue(item.feature?.text).slice(0, 700),
+    },
+  };
+}
+
+function createEmptyIngredient() {
+  return {
+    name: "",
+    flavors: [{ flavor: "Dulce", potency: 1 }],
+    feature: { name: "", text: "" },
+  };
 }
 
 function stringValue(value) { return value == null ? "" : String(value); }
@@ -343,6 +413,7 @@ function renderEditor() {
     renderBasicSection(draft),
     renderImageSection(draft),
     activeKind === "environment" ? renderEnvironmentSection(draft) : renderAdversarySection(draft),
+    activeKind === "adversary" ? renderIngredientsSection(draft) : "",
     renderFeaturesSection(draft),
   ].join("");
   updateAllCounters();
@@ -447,6 +518,74 @@ function renderAdversarySection(draft) {
     </section>`;
 }
 
+function renderIngredientsSection(draft) {
+  const ingredientEditors = draft.ingredients.length
+    ? draft.ingredients.map((ingredient, index) => ingredientEditor(ingredient, index)).join("")
+    : `<div class="ingredient-empty-state"><span aria-hidden="true">✧</span><p>Este adversario todavía no suelta ingredientes.</p></div>`;
+  return `
+    <section class="form-section">
+      <h2 class="section-title">Ingredientes que puede soltar</h2>
+      <p class="section-help">Hasta ${MAX_INGREDIENTS} ingredientes. Cada uno posee entre 1 y ${MAX_INGREDIENT_FLAVORS} sabores, con potencia de 1 a 3.</p>
+      <div class="ingredient-list">
+        ${ingredientEditors}
+      </div>
+      <button class="add-button" type="button" data-action="add-ingredient" ${draft.ingredients.length >= MAX_INGREDIENTS ? "disabled" : ""}>＋ Agregar ingrediente · ${draft.ingredients.length}/${MAX_INGREDIENTS}</button>
+    </section>`;
+}
+
+function ingredientEditor(ingredient, index) {
+  const selectedFlavors = ingredient.flavors.map((item) => item.flavor);
+  const flavorRows = ingredient.flavors.map((item, flavorIndex) => {
+    const options = FLAVORS.map((flavor) => {
+      const usedElsewhere = selectedFlavors.some((selected, selectedIndex) => selectedIndex !== flavorIndex && selected === flavor.name);
+      return `<option value="${escapeAttr(flavor.name)}" ${item.flavor === flavor.name ? "selected" : ""} ${usedElsewhere ? "disabled" : ""}>${escapeHtml(flavor.name)} · ${flavor.die}</option>`;
+    }).join("");
+    return `
+      <div class="ingredient-flavor-row">
+        <div class="field">
+          <label for="ingredient-${index}-flavor-${flavorIndex}">Sabor ${flavorIndex + 1}</label>
+          <select id="ingredient-${index}-flavor-${flavorIndex}" data-field="ingredients.${index}.flavors.${flavorIndex}.flavor" data-ingredient-flavor data-ingredient-index="${index}">
+            ${options}
+          </select>
+        </div>
+        <div class="field ingredient-potency-field">
+          <label for="ingredient-${index}-potency-${flavorIndex}">Potencia</label>
+          <select id="ingredient-${index}-potency-${flavorIndex}" data-number-field="ingredients.${index}.flavors.${flavorIndex}.potency">
+            ${[1, 2, 3].map((value) => `<option value="${value}" ${Number(item.potency) === value ? "selected" : ""}>${value}</option>`).join("")}
+          </select>
+        </div>
+        <button class="remove-button ingredient-flavor-remove" type="button" data-action="remove-ingredient-flavor" data-ingredient-index="${index}" data-flavor-index="${flavorIndex}" aria-label="Quitar sabor" ${ingredient.flavors.length <= 1 ? "disabled" : ""}>×</button>
+      </div>`;
+  }).join("");
+  const hasFeature = Boolean(ingredient.feature.name || ingredient.feature.text);
+  return `
+    <article class="ingredient-editor">
+      <div class="feature-editor-header">
+        <span class="feature-index">INGREDIENTE ${String(index + 1).padStart(2, "0")}</span>
+        <button class="remove-button" type="button" data-action="remove-ingredient" data-index="${index}" aria-label="Quitar ingrediente">×</button>
+      </div>
+      <div class="form-grid">
+        ${textField("Nombre", `ingredients.${index}.name`, ingredient.name, 100, true, "Ej.: Lengua de dragón")}
+      </div>
+      <div class="ingredient-flavors-heading">
+        <div>
+          <span class="field-label">Perfil de sabor</span>
+          <p class="section-help">El dado está determinado por el sabor; la potencia se indica entre 1 y 3.</p>
+        </div>
+        <span class="ingredient-flavor-count">${ingredient.flavors.length}/${MAX_INGREDIENT_FLAVORS}</span>
+      </div>
+      <div class="ingredient-flavor-list">${flavorRows}</div>
+      <button class="add-button ingredient-add-flavor" type="button" data-action="add-ingredient-flavor" data-ingredient-index="${index}" ${ingredient.flavors.length >= MAX_INGREDIENT_FLAVORS ? "disabled" : ""}>＋ Agregar sabor</button>
+      <details class="ingredient-feature-editor" ${hasFeature ? "open" : ""}>
+        <summary>Rasgo opcional del ingrediente</summary>
+        <div class="form-grid" style="margin-top:12px">
+          ${textField("Nombre del rasgo", `ingredients.${index}.feature.name`, ingredient.feature.name, 90, true, "Ej.: Última gota")}
+          ${textareaField("Descripción del rasgo", `ingredients.${index}.feature.text`, ingredient.feature.text, 700, true, "Déjalo vacío si el ingrediente no posee un rasgo.")}
+        </div>
+      </details>
+    </article>`;
+}
+
 function renderFeaturesSection(draft) {
   return `
     <section class="form-section">
@@ -521,6 +660,14 @@ function handleEditorInput(event) {
 function handleEditorChange(event) {
   const target = event.target;
   if (target.matches("[data-image-input]") && target.files?.[0]) processImageFile(target.files[0]);
+  if (target.matches("[data-ingredient-flavor]")) {
+    const ingredientIndex = Number(target.dataset.ingredientIndex);
+    const ingredient = currentDraft().ingredients?.[ingredientIndex];
+    if (ingredient) ingredient.flavors = normalizeIngredient({ flavors: ingredient.flavors }).flavors;
+    renderEditor();
+    schedulePreview();
+    queueAutosave();
+  }
 }
 
 function handleEditorClick(event) {
@@ -542,6 +689,23 @@ function handleEditorClick(event) {
   else if (action === "remove-potentialAdversaries") draft.potentialAdversaries.splice(index, 1);
   else if (action === "add-experience" && draft.experiences.length < MAX_EXPERIENCES) draft.experiences.push({ name: "", modifier: 2 });
   else if (action === "remove-experience") draft.experiences.splice(index, 1);
+  else if (action === "add-ingredient" && draft.ingredients.length < MAX_INGREDIENTS) draft.ingredients.push(createEmptyIngredient());
+  else if (action === "remove-ingredient") draft.ingredients.splice(index, 1);
+  else if (action === "add-ingredient-flavor") {
+    const ingredientIndex = Number(button.dataset.ingredientIndex);
+    const ingredient = draft.ingredients[ingredientIndex];
+    if (!ingredient || ingredient.flavors.length >= MAX_INGREDIENT_FLAVORS) return;
+    const used = new Set(ingredient.flavors.map((item) => item.flavor));
+    const nextFlavor = FLAVORS.find((item) => !used.has(item.name))?.name || "Dulce";
+    ingredient.flavors.push({ flavor: nextFlavor, potency: 1 });
+  }
+  else if (action === "remove-ingredient-flavor") {
+    const ingredientIndex = Number(button.dataset.ingredientIndex);
+    const flavorIndex = Number(button.dataset.flavorIndex);
+    const ingredient = draft.ingredients[ingredientIndex];
+    if (!ingredient || ingredient.flavors.length <= 1) return;
+    ingredient.flavors.splice(flavorIndex, 1);
+  }
   else if (action === "add-feature" && draft.features.length < MAX_FEATURES) draft.features.push({ name: "", type: "Pasiva", text: "", bullets: [] });
   else if (action === "remove-feature") draft.features.splice(index, 1);
   else return;
@@ -923,7 +1087,101 @@ function drawAdversaryBody(ctx, draft, x, y, width, paint) {
     y += expH + 28;
   } else y += 14;
 
+  y = drawIngredients(ctx, draft.ingredients, x, y, width, paint);
   return drawFeatures(ctx, draft.features, x, y, width, paint);
+}
+
+function drawIngredients(ctx, ingredients, x, y, width, paint) {
+  const activeIngredients = arrayValue(ingredients).slice(0, MAX_INGREDIENTS);
+  if (!activeIngredients.length) return y;
+
+  y = drawSectionLabel(ctx, "INGREDIENTES", x, y, width, paint);
+  y += 24;
+
+  activeIngredients.forEach((ingredient, index) => {
+    const name = ingredient.name?.trim() || `Ingrediente ${index + 1}`;
+    const flavors = arrayValue(ingredient.flavors).slice(0, MAX_INGREDIENT_FLAVORS);
+    const nameH = textBlockHeight(ctx, name, 24, width - 82, 1.2, "700 24px Georgia");
+    const chipMetrics = measureFlavorChips(ctx, flavors, width - 58);
+    const chipsOffset = 22 + nameH + 17;
+    const featureName = ingredient.feature?.name?.trim() || (ingredient.feature?.text?.trim() ? "Rasgo culinario" : "");
+    const featureText = ingredient.feature?.text?.trim() || "";
+    const featureNameH = featureName ? textBlockHeight(ctx, featureName, 17, width - 64, 1.3, "700 17px Arial") : 0;
+    const featureTextH = featureText ? textBlockHeight(ctx, featureText, 17, width - 64, 1.38, "500 17px Arial") : 0;
+    const featureH = featureName ? featureNameH + (featureText ? 8 + featureTextH : 0) : 0;
+    const cardH = chipsOffset + chipMetrics.height + (featureH ? 18 + featureH : 0) + 25;
+
+    if (paint) {
+      roundedRect(ctx, x, y, width, cardH, 14, index % 2 === 0 ? "#fffaf0" : "#f9f1e4");
+      ctx.strokeStyle = PALETTE.line;
+      ctx.lineWidth = 1.5;
+      roundedStroke(ctx, x, y, width, cardH, 14);
+      ctx.fillStyle = PALETTE.gold;
+      ctx.fillRect(x, y, 8, cardH);
+      drawDiamond(ctx, x + 29, y + 29, 8, PALETTE.violetDark);
+      drawWrappedText(ctx, name, x + 50, y + 19, width - 82, 24, PALETTE.ink, 1.2, "700 24px Georgia");
+
+      drawFlavorChips(ctx, flavors, x + 28, y + chipsOffset, width - 56);
+      if (featureName) {
+        const featureY = y + chipsOffset + chipMetrics.height + 18;
+        let featureBottom = drawWrappedText(ctx, featureName, x + 29, featureY, width - 58, 17, PALETTE.violetDark, 1.3, "700 17px Arial");
+        if (featureText) {
+          drawWrappedText(ctx, featureText, x + 29, featureBottom + 8, width - 58, 17, PALETTE.muted, 1.38, "500 17px Arial");
+        }
+      }
+    }
+    y += cardH + 15;
+  });
+
+  return y + 13;
+}
+
+function measureFlavorChips(ctx, flavors, maxWidth) {
+  if (!flavors.length) return { height: 36, rows: 1 };
+  ctx.font = "700 16px Arial";
+  let rowWidth = 0;
+  let rows = 1;
+  flavors.forEach((item) => {
+    const label = flavorChipLabel(item);
+    const chipW = ctx.measureText(label).width + 30;
+    if (rowWidth && rowWidth + 9 + chipW > maxWidth) {
+      rows += 1;
+      rowWidth = chipW;
+    } else rowWidth += (rowWidth ? 9 : 0) + chipW;
+  });
+  return { height: rows * 36 + (rows - 1) * 8, rows };
+}
+
+function drawFlavorChips(ctx, flavors, x, y, maxWidth) {
+  const list = flavors.length ? flavors : [{ flavor: "Sin sabor", potency: 1 }];
+  ctx.font = "700 16px Arial";
+  let cx = x;
+  let cy = y;
+  list.forEach((item) => {
+    const label = flavorChipLabel(item);
+    const chipW = ctx.measureText(label).width + 30;
+    if (cx > x && cx + chipW > x + maxWidth) {
+      cx = x;
+      cy += 44;
+    }
+    roundedRect(ctx, cx, cy, chipW, 36, 18, PALETTE.violetPale);
+    ctx.strokeStyle = "rgba(85,57,109,0.22)";
+    ctx.lineWidth = 1;
+    roundedStroke(ctx, cx, cy, chipW, 36, 18);
+    ctx.fillStyle = PALETTE.violetDark;
+    ctx.textAlign = "center";
+    ctx.font = "700 16px Arial";
+    ctx.fillText(label, cx + chipW / 2, cy + 24);
+    ctx.textAlign = "left";
+    cx += chipW + 9;
+  });
+}
+
+function flavorChipLabel(item) {
+  const flavor = stringValue(item?.flavor) || "Dulce";
+  const die = FLAVORS.find((option) => option.name === flavor)?.die || "d4";
+  const potency = numericValue(item?.potency, 1, 1, 3);
+  return `${flavor} ${die} (${potency})`;
 }
 
 function drawFeatures(ctx, features, x, y, width, paint) {
