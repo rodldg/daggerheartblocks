@@ -1,8 +1,9 @@
 {
   "app": "Forja de Bloques Daggerheart",
-  "version": 2,
+  "version": 4,
   "block": {
     "kind": "adversary",
+    "blockTheme": "bruma-menta",
     "title": "Jabalí de la caverna sagrada",
     "tier": 1,
     "type": "Bruto",

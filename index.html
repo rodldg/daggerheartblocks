@@ -3,11 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#162629">
-  <meta name="description" content="Creador local y serverless de bloques de adversarios y ambientes compatibles con Daggerheart, con ingredientes y perfiles de sabor.">
+  <meta name="theme-color" content="#171923">
+  <meta name="description" content="Creador local y serverless de bloques de adversarios y ambientes compatibles con Daggerheart, con exportación completa y modo jugador.">
   <title>Forja de Bloques | Daggerheart</title>
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="manifest" href="./manifest.webmanifest">
+  <script>
+    (() => {
+      const preference = localStorage.getItem("forja-daggerheart-app-theme-v1") || "system";
+      const resolved = preference === "system"
+        ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+        : preference;
+      document.documentElement.dataset.appTheme = resolved;
+      document.documentElement.dataset.appThemePreference = preference;
+      document.documentElement.style.colorScheme = resolved;
+    })();
+  </script>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -32,18 +43,52 @@
           <span aria-hidden="true">▤</span><span>Biblioteca</span>
         </button>
         <span class="toolbar-separator" aria-hidden="true"></span>
+        <label class="appearance-control" title="Tema de la aplicación">
+          <span aria-hidden="true">◐</span>
+          <span class="appearance-label">Apariencia</span>
+          <select id="appThemeSelect" aria-label="Tema de la aplicación">
+            <option value="system">Sistema</option>
+            <option value="light">Claro</option>
+            <option value="dark">Oscuro</option>
+          </select>
+        </label>
+        <span class="toolbar-separator" aria-hidden="true"></span>
         <button class="tool-button" type="button" data-global-action="import-json" title="Importar un archivo JSON">
           <span aria-hidden="true">⇧</span><span>Importar</span>
         </button>
         <button class="tool-button" type="button" data-global-action="export-json" title="Descargar los datos como JSON">
           <span aria-hidden="true">⇩</span><span>JSON</span>
         </button>
-        <button class="tool-button primary" type="button" data-global-action="export-png" title="Descargar el bloque como imagen PNG">
-          <span aria-hidden="true">▣</span><span>PNG</span>
-        </button>
-        <button class="tool-button primary" type="button" data-global-action="export-pdf" title="Descargar el bloque como PDF">
-          <span aria-hidden="true">▱</span><span>PDF</span>
-        </button>
+        <div class="export-dropdown" data-export-dropdown>
+          <button class="tool-button primary export-dropdown-trigger" type="button" data-export-toggle aria-haspopup="menu" aria-expanded="false" title="Opciones de exportación PNG">
+            <span aria-hidden="true">▣</span><span>PNG</span><span class="export-chevron" aria-hidden="true">⌄</span>
+          </button>
+          <div class="export-dropdown-menu" role="menu" aria-label="Exportar PNG" hidden>
+            <button type="button" role="menuitem" data-global-action="export-png" data-export-mode="complete">
+              <span class="export-option-icon" aria-hidden="true">▤</span>
+              <span><strong>Bloque completo</strong><small>Incluye perfil, ingredientes y rasgos</small></span>
+            </button>
+            <button type="button" role="menuitem" data-global-action="export-png" data-export-mode="player">
+              <span class="export-option-icon" aria-hidden="true">◫</span>
+              <span><strong>Modo jugador</strong><small>Sólo cabecera, imagen y resumen</small></span>
+            </button>
+          </div>
+        </div>
+        <div class="export-dropdown" data-export-dropdown>
+          <button class="tool-button primary export-dropdown-trigger" type="button" data-export-toggle aria-haspopup="menu" aria-expanded="false" title="Opciones de exportación PDF">
+            <span aria-hidden="true">▱</span><span>PDF</span><span class="export-chevron" aria-hidden="true">⌄</span>
+          </button>
+          <div class="export-dropdown-menu" role="menu" aria-label="Exportar PDF" hidden>
+            <button type="button" role="menuitem" data-global-action="export-pdf" data-export-mode="complete">
+              <span class="export-option-icon" aria-hidden="true">▤</span>
+              <span><strong>Bloque completo</strong><small>Incluye perfil, ingredientes y rasgos</small></span>
+            </button>
+            <button type="button" role="menuitem" data-global-action="export-pdf" data-export-mode="player">
+              <span class="export-option-icon" aria-hidden="true">◫</span>
+              <span><strong>Modo jugador</strong><small>Sólo cabecera, imagen y resumen</small></span>
+            </button>
+          </div>
+        </div>
       </nav>
     </header>
 
@@ -69,14 +114,25 @@
             <p class="eyebrow">VISTA PREVIA</p>
             <p id="previewMeta">El bloque se actualiza en tiempo real</p>
           </div>
-          <label class="resolution-control">
-            <span>Exportación</span>
-            <select id="exportScale" aria-label="Resolución de exportación">
-              <option value="1">Estándar · 1120 px</option>
-              <option value="2" selected>Alta · 2240 px</option>
-              <option value="3">Impresión · 3360 px</option>
-            </select>
-          </label>
+          <div class="preview-controls">
+            <label class="resolution-control">
+              <span>Tema del bloque</span>
+              <select id="blockThemeSelect" aria-label="Tema visual del bloque resultante">
+                <option value="bruma-menta">Bruma menta</option>
+                <option value="lavanda-rosa">Lavanda y rosa</option>
+                <option value="pergamino-salvia">Pergamino y salvia</option>
+                <option value="cielo-coral">Cielo y coral</option>
+              </select>
+            </label>
+            <label class="resolution-control">
+              <span>Exportación</span>
+              <select id="exportScale" aria-label="Resolución de exportación">
+                <option value="1">Estándar · 1120 px</option>
+                <option value="2" selected>Alta · 2240 px</option>
+                <option value="3">Impresión · 3360 px</option>
+              </select>
+            </label>
+          </div>
         </div>
 
         <div class="canvas-stage" id="canvasStage">
@@ -93,7 +149,7 @@
 
     <footer class="site-footer">
       <p>Herramienta fan-made y no oficial. No está afiliada, patrocinada ni respaldada por Darrington Press.</p>
-      <p>Diseño original con una paleta editorial pastel en azules y verdes.</p>
+      <p>La interfaz y el bloque exportado usan sistemas de temas independientes.</p>
     </footer>
   </div>
 

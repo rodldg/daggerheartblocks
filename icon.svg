@@ -1,11 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Forja de Bloques">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#98c7b0"/>
-      <stop offset="1" stop-color="#86b8c4"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#244b55"/>
+      <stop offset="0.58" stop-color="#376b70"/>
+      <stop offset="1" stop-color="#79aeb8"/>
+    </linearGradient>
+    <linearGradient id="gem" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6efdf"/>
+      <stop offset="1" stop-color="#d7bd86"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="16" fill="#162629"/>
-  <path d="M32 8 49 19 54 38 42 54 22 54 10 38 15 19Z" fill="none" stroke="url(#g)" stroke-width="3"/>
-  <path d="m32 17 8 15-8 15-8-15Z" fill="url(#g)"/>
+  <rect width="512" height="512" rx="104" fill="url(#bg)"/>
+  <path d="M256 70 420 256 256 442 92 256Z" fill="none" stroke="url(#gem)" stroke-width="28"/>
+  <path d="M256 139 358 256 256 373 154 256Z" fill="url(#gem)" opacity=".95"/>
+  <path d="M256 184 319 256 256 328 193 256Z" fill="#294f59"/>
 </svg>

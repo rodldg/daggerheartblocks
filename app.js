@@ -1,6 +1,8 @@
 "use strict";
 
-const APP_VERSION = 3;
+const APP_VERSION = 5;
+const APP_THEME_KEY = "forja-daggerheart-app-theme-v1";
+const DEFAULT_BLOCK_THEME = "bruma-menta";
 const AUTOSAVE_KEY = "forja-daggerheart-autosave-v1";
 const LIBRARY_KEY = "forja-daggerheart-library-v1";
 const MAX_IMPULSES = 20;
@@ -20,33 +22,78 @@ const FLAVORS = [
   { name: "Raro", die: "d20" },
 ];
 
-const PALETTE = {
-  background: "#dce8e5",
-  paper: "#fbfdfc",
-  paperAlt: "#edf6f3",
-  ink: "#203438",
-  muted: "#61777a",
-  deep: "#294f59",
-  plum: "#3f7478",
-  violet: "#79aeb8",
-  violetDark: "#34636b",
-  violetPale: "#e4f1f3",
-  gold: "#d7bd86",
-  goldPale: "#f6efdf",
-  red: "#9d6763",
-  line: "#c7d9d4",
-  white: "#ffffff",
-  mint: "#dfeee6",
-  mintStrong: "#77a98f",
-  bluePale: "#e3eef3",
-  blueStrong: "#6f9eaa",
-  sandPale: "#f3ead7",
-  coralPale: "#f3e4e0",
+const BLOCK_THEMES = {
+  "bruma-menta": {
+    label: "Bruma menta",
+    description: "Azules grisáceos y verde menta",
+    headerGradient: ["#244b55", "#376b70", "#6f9f96"],
+    imageOverlay: ["rgba(24,39,43,0.08)", "rgba(24,39,43,0.18)", "rgba(24,39,43,0.94)"],
+    palette: {
+      background: "#dce8e5", paper: "#fbfdfc", paperAlt: "#edf6f3", ink: "#203438",
+      muted: "#61777a", deep: "#294f59", plum: "#3f7478", violet: "#79aeb8",
+      violetDark: "#34636b", violetPale: "#e4f1f3", gold: "#d7bd86", goldPale: "#f6efdf",
+      red: "#9d6763", line: "#c7d9d4", white: "#ffffff", mint: "#dfeee6",
+      mintStrong: "#77a98f", bluePale: "#e3eef3", blueStrong: "#6f9eaa",
+      sandPale: "#f3ead7", coralPale: "#f3e4e0",
+    },
+  },
+  "lavanda-rosa": {
+    label: "Lavanda y rosa",
+    description: "Lavanda editorial con rosa empolvado",
+    headerGradient: ["#4c415d", "#756581", "#a8889b"],
+    imageOverlay: ["rgba(49,39,61,0.08)", "rgba(49,39,61,0.18)", "rgba(49,39,61,0.94)"],
+    palette: {
+      background: "#e9e4ee", paper: "#fffafd", paperAlt: "#f5edf6", ink: "#342c3e",
+      muted: "#766a7f", deep: "#58466c", plum: "#786482", violet: "#b7a1c7",
+      violetDark: "#675477", violetPale: "#f0e7f4", gold: "#d8bd84", goldPale: "#fbf2dd",
+      red: "#a86f78", line: "#dfd3e3", white: "#ffffff", mint: "#e7f0ed",
+      mintStrong: "#83a89b", bluePale: "#eee7f6", blueStrong: "#9a82b0",
+      sandPale: "#f7eddf", coralPale: "#f7e7e9",
+    },
+  },
+  "pergamino-salvia": {
+    label: "Pergamino y salvia",
+    description: "Marfil cálido, salvia y dorado suave",
+    headerGradient: ["#4c5547", "#6f7662", "#9b916f"],
+    imageOverlay: ["rgba(50,54,43,0.07)", "rgba(50,54,43,0.17)", "rgba(50,54,43,0.93)"],
+    palette: {
+      background: "#ebe5d8", paper: "#fffdf7", paperAlt: "#f8f2e7", ink: "#3f3a31",
+      muted: "#756f61", deep: "#5d624f", plum: "#7d765f", violet: "#a6aa91",
+      violetDark: "#646953", violetPale: "#eff1e6", gold: "#c8a866", goldPale: "#f8edcf",
+      red: "#a56d5d", line: "#ddd3bd", white: "#ffffff", mint: "#e6eddf",
+      mintStrong: "#839c74", bluePale: "#edf0e5", blueStrong: "#899d83",
+      sandPale: "#f5e7ca", coralPale: "#f2e0d8",
+    },
+  },
+  "cielo-coral": {
+    label: "Cielo y coral",
+    description: "Celeste limpio con acentos coral",
+    headerGradient: ["#36586c", "#52798a", "#a56f6c"],
+    imageOverlay: ["rgba(34,50,62,0.08)", "rgba(34,50,62,0.17)", "rgba(34,50,62,0.94)"],
+    palette: {
+      background: "#e2eaf0", paper: "#fffdfc", paperAlt: "#f3f7f9", ink: "#28343f",
+      muted: "#687784", deep: "#3d5d70", plum: "#62798a", violet: "#9bb9c9",
+      violetDark: "#486f80", violetPale: "#e8f2f6", gold: "#e0b98f", goldPale: "#fbefdf",
+      red: "#ad6f69", line: "#d1dee5", white: "#ffffff", mint: "#e8f1ed",
+      mintStrong: "#85aa9a", bluePale: "#e8f1f7", blueStrong: "#7ca5b8",
+      sandPale: "#f6eadc", coralPale: "#f7e2dd",
+    },
+  },
 };
+
+let ACTIVE_BLOCK_THEME = BLOCK_THEMES[DEFAULT_BLOCK_THEME];
+let PALETTE = ACTIVE_BLOCK_THEME.palette;
+
+function activateBlockTheme(themeId) {
+  ACTIVE_BLOCK_THEME = BLOCK_THEMES[themeId] || BLOCK_THEMES[DEFAULT_BLOCK_THEME];
+  PALETTE = ACTIVE_BLOCK_THEME.palette;
+  return ACTIVE_BLOCK_THEME;
+}
 
 const EXAMPLES = {
   environment: {
     kind: "environment",
+    blockTheme: DEFAULT_BLOCK_THEME,
     title: "Arboleda abandonada",
     tier: 1,
     type: "Exploración",
@@ -91,6 +138,7 @@ const EXAMPLES = {
   },
   adversary: {
     kind: "adversary",
+    blockTheme: DEFAULT_BLOCK_THEME,
     title: "Excavador ácido",
     tier: 1,
     type: "Solitario",
@@ -192,6 +240,8 @@ let autosaveTimer = null;
 let draggedFeatureIndex = null;
 
 const editorForm = document.getElementById("editorForm");
+const appThemeSelect = document.getElementById("appThemeSelect");
+const blockThemeSelect = document.getElementById("blockThemeSelect");
 const statblockCanvas = document.getElementById("statblockCanvas");
 const exportScaleSelect = document.getElementById("exportScale");
 const previewMeta = document.getElementById("previewMeta");
@@ -207,6 +257,7 @@ init();
 
 function init() {
   normalizeAppState();
+  initializeThemeControls();
   bindGlobalEvents();
   renderKindSwitch();
   renderEditor();
@@ -258,6 +309,7 @@ function normalizeDraft(raw, kind) {
   draft.description = stringValue(draft.description).slice(0, 200);
   draft.tier = numericValue(draft.tier, 1, 1, 4);
   draft.difficulty = numericValue(draft.difficulty, 10, 0, 99);
+  draft.blockTheme = BLOCK_THEMES[draft.blockTheme] ? draft.blockTheme : DEFAULT_BLOCK_THEME;
   draft.imageDataUrl = stringValue(draft.imageDataUrl);
   draft.imageName = stringValue(draft.imageName);
   draft.imageHeight = numericValue(draft.imageHeight, 340, 220, 520);
@@ -345,13 +397,73 @@ function numericValue(value, fallback, min, max) {
 }
 function currentDraft() { return appState.drafts[activeKind]; }
 
+function initializeThemeControls() {
+  const storedPreference = localStorage.getItem(APP_THEME_KEY);
+  const preference = ["system", "light", "dark"].includes(storedPreference) ? storedPreference : "system";
+  if (appThemeSelect) appThemeSelect.value = preference;
+  applyAppTheme(preference);
+  syncBlockThemeControl();
+
+  const systemTheme = window.matchMedia?.("(prefers-color-scheme: dark)");
+  systemTheme?.addEventListener?.("change", () => {
+    if ((localStorage.getItem(APP_THEME_KEY) || "system") === "system") applyAppTheme("system");
+  });
+}
+
+function applyAppTheme(preference) {
+  const safePreference = ["system", "light", "dark"].includes(preference) ? preference : "system";
+  const resolved = safePreference === "system"
+    ? (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+    : safePreference;
+  document.documentElement.dataset.appTheme = resolved;
+  document.documentElement.dataset.appThemePreference = safePreference;
+  document.documentElement.style.colorScheme = resolved;
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) themeMeta.content = resolved === "dark" ? "#171923" : "#f4f2f7";
+}
+
+function syncBlockThemeControl() {
+  if (!blockThemeSelect) return;
+  blockThemeSelect.value = currentDraft()?.blockTheme || DEFAULT_BLOCK_THEME;
+}
+
 function bindGlobalEvents() {
   document.querySelectorAll("[data-kind]").forEach((button) => {
     button.addEventListener("click", () => switchKind(button.dataset.kind));
   });
 
   document.querySelectorAll("[data-global-action]").forEach((button) => {
-    button.addEventListener("click", () => handleGlobalAction(button.dataset.globalAction));
+    button.addEventListener("click", () => {
+      handleGlobalAction(button.dataset.globalAction, button.dataset.exportMode || "complete");
+      closeExportMenus();
+    });
+  });
+
+  document.querySelectorAll("[data-export-toggle]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleExportMenu(button);
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-export-dropdown]")) closeExportMenus();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeExportMenus();
+  });
+
+  appThemeSelect?.addEventListener("change", () => {
+    const preference = appThemeSelect.value;
+    localStorage.setItem(APP_THEME_KEY, preference);
+    applyAppTheme(preference);
+  });
+
+  blockThemeSelect?.addEventListener("change", () => {
+    const themeId = BLOCK_THEMES[blockThemeSelect.value] ? blockThemeSelect.value : DEFAULT_BLOCK_THEME;
+    currentDraft().blockTheme = themeId;
+    schedulePreview();
+    queueAutosave();
   });
 
   editorForm.addEventListener("input", handleEditorInput);
@@ -367,6 +479,30 @@ function bindGlobalEvents() {
   libraryDialog.addEventListener("click", handleLibraryClick);
   confirmDialog.addEventListener("click", handleConfirmClick);
   window.addEventListener("beforeunload", saveAutosave);
+}
+
+function toggleExportMenu(toggleButton) {
+  const dropdown = toggleButton.closest("[data-export-dropdown]");
+  const menu = dropdown?.querySelector(".export-dropdown-menu");
+  if (!dropdown || !menu) return;
+  const shouldOpen = menu.hidden;
+  closeExportMenus();
+  if (shouldOpen) {
+    menu.hidden = false;
+    dropdown.classList.add("open");
+    toggleButton.setAttribute("aria-expanded", "true");
+    requestAnimationFrame(() => menu.querySelector("button")?.focus());
+  }
+}
+
+function closeExportMenus() {
+  document.querySelectorAll("[data-export-dropdown]").forEach((dropdown) => {
+    const menu = dropdown.querySelector(".export-dropdown-menu");
+    const toggle = dropdown.querySelector("[data-export-toggle]");
+    if (menu) menu.hidden = true;
+    dropdown.classList.remove("open");
+    toggle?.setAttribute("aria-expanded", "false");
+  });
 }
 
 function switchKind(kind) {
@@ -387,7 +523,7 @@ function renderKindSwitch() {
   });
 }
 
-function handleGlobalAction(action) {
+function handleGlobalAction(action, exportMode = "complete") {
   switch (action) {
     case "new":
       openConfirm("Crear un bloque nuevo", "Se reemplazará el borrador actual. Los elementos guardados en la biblioteca no se modificarán.", () => {
@@ -411,13 +547,14 @@ function handleGlobalAction(action) {
       break;
     case "import-json": jsonFileInput.click(); break;
     case "export-json": exportJson(); break;
-    case "export-png": exportPng(); break;
-    case "export-pdf": exportPdf(); break;
+    case "export-png": exportPng(exportMode); break;
+    case "export-pdf": exportPdf(exportMode); break;
   }
 }
 
 function renderEditor() {
   const draft = currentDraft();
+  syncBlockThemeControl();
   editorForm.innerHTML = [
     renderBasicSection(draft),
     renderImageSection(draft),
@@ -612,7 +749,7 @@ function featureEditor(feature, index, total) {
     <article class="feature-editor" data-feature-editor data-index="${index}">
       <div class="feature-editor-header">
         <div class="feature-editor-identity">
-          <button class="feature-drag-handle" type="button" draggable="true" data-feature-drag-handle data-index="${index}" aria-label="Arrastrar rasgo ${index + 1}" title="Arrastrar para cambiar de posición">⋮⋮</button>
+          <button class="feature-drag-handle" type="button" draggable="true" data-feature-drag-handle data-index="${index}" aria-label="Arrastrar rasgo ${index + 1}" title="Arrastrar para cambiar de posición"><span class="drag-dot-grid" aria-hidden="true"></span></button>
           <span class="feature-index">RASGO ${String(index + 1).padStart(2, "0")}</span>
         </div>
         <div class="feature-order-actions" aria-label="Orden del rasgo ${index + 1}">
@@ -637,7 +774,7 @@ function featureEditor(feature, index, total) {
 
 function textField(label, path, value, maxLength, full = false, placeholder = "") {
   const id = idFromPath(path);
-  return `<div class="field ${full ? "full" : ""}"><label for="${id}">${label}</label><div class="input-wrap"><input id="${id}" type="text" maxlength="${maxLength}" data-field="${path}" value="${escapeAttr(value)}" placeholder="${escapeAttr(placeholder)}"><span class="char-counter" data-counter>${stringValue(value).length}/${maxLength}</span></div></div>`;
+  return `<div class="field ${full ? "full" : ""}"><label for="${id}">${label}</label><div class="input-wrap"><input id="${id}" type="text" maxlength="${maxLength}" data-field="${path}" value="${escapeAttr(value)}" placeholder="${escapeAttr(placeholder)}"><span class="char-counter" data-counter>${stringValue(value).length} / ${maxLength}</span></div></div>`;
 }
 
 function numberField(label, path, value, min, max, step) {
@@ -648,7 +785,7 @@ function numberField(label, path, value, min, max, step) {
 function textareaField(label, path, value, maxLength, full = false, hint = "", linesMode = false) {
   const id = idFromPath(path);
   const attribute = linesMode ? "data-lines-field" : "data-field";
-  return `<div class="field ${full ? "full" : ""}"><label for="${id}">${label}${hint ? ` <span class="field-hint">${hint}</span>` : ""}</label><div class="input-wrap"><textarea id="${id}" maxlength="${maxLength}" ${attribute}="${path}">${escapeHtml(value)}</textarea><span class="char-counter" data-counter>${stringValue(value).length}/${maxLength}</span></div></div>`;
+  return `<div class="field ${full ? "full" : ""}"><label for="${id}">${label}${hint ? ` <span class="field-hint">${hint}</span>` : ""}</label><div class="input-wrap"><textarea id="${id}" maxlength="${maxLength}" ${attribute}="${path}">${escapeHtml(value)}</textarea><span class="char-counter" data-counter>${stringValue(value).length} / ${maxLength}</span></div></div>`;
 }
 
 function rangeField(label, path, value, min, max, step, suffix) {
@@ -657,7 +794,7 @@ function rangeField(label, path, value, min, max, step, suffix) {
 }
 
 function listTextRow(path, index, value, maxLength, label) {
-  return `<div class="list-row"><div class="input-wrap"><input type="text" maxlength="${maxLength}" data-field="${path}.${index}" value="${escapeAttr(value)}" aria-label="${label} ${index + 1}" placeholder="${label}"><span class="char-counter" data-counter>${stringValue(value).length}/${maxLength}</span></div><button class="remove-button" type="button" data-action="remove-${path}" data-index="${index}" aria-label="Quitar ${label.toLowerCase()}">×</button></div>`;
+  return `<div class="list-row"><div class="input-wrap"><input type="text" maxlength="${maxLength}" data-field="${path}.${index}" value="${escapeAttr(value)}" aria-label="${label} ${index + 1}" placeholder="${label}"><span class="char-counter" data-counter>${stringValue(value).length} / ${maxLength}</span></div><button class="remove-button" type="button" data-action="remove-${path}" data-index="${index}" aria-label="Quitar ${label.toLowerCase()}">×</button></div>`;
 }
 
 function handleEditorInput(event) {
@@ -895,7 +1032,7 @@ function updateCounter(target) {
   const counter = target.parentElement?.querySelector(":scope > [data-counter]");
   if (!counter) return;
   const length = target.value.length;
-  counter.textContent = `${length}/${target.maxLength}`;
+  counter.textContent = `${length} / ${target.maxLength}`;
   counter.classList.toggle("near-limit", length >= target.maxLength * 0.8 && length < target.maxLength);
   counter.classList.toggle("at-limit", length >= target.maxLength);
 }
@@ -942,18 +1079,19 @@ function schedulePreview() {
   });
 }
 
-function renderStatblock(canvas, draft, pixelScale = 1, image = null) {
+function renderStatblock(canvas, draft, pixelScale = 1, image = null, renderMode = "complete") {
   const scratch = document.createElement("canvas").getContext("2d");
-  const height = Math.ceil(drawStatblock(scratch, draft, LOGICAL_WIDTH, false, image, null));
+  const height = Math.ceil(drawStatblock(scratch, draft, LOGICAL_WIDTH, false, image, null, renderMode));
   canvas.width = Math.ceil(LOGICAL_WIDTH * pixelScale);
   canvas.height = Math.ceil(height * pixelScale);
   const ctx = canvas.getContext("2d", { alpha: false });
   ctx.scale(pixelScale, pixelScale);
-  drawStatblock(ctx, draft, LOGICAL_WIDTH, true, image, height);
+  drawStatblock(ctx, draft, LOGICAL_WIDTH, true, image, height, renderMode);
   return { width: LOGICAL_WIDTH, height };
 }
 
-function drawStatblock(ctx, draft, width, paint, image, measuredHeight = null) {
+function drawStatblock(ctx, draft, width, paint, image, measuredHeight = null, renderMode = "complete") {
+  activateBlockTheme(draft.blockTheme);
   const outer = 24;
   const cardX = outer;
   const cardW = width - outer * 2;
@@ -983,26 +1121,26 @@ function drawStatblock(ctx, draft, width, paint, image, measuredHeight = null) {
       roundedClip(ctx, cardX, y, cardW, imageH, 8, true, false);
       drawImageCover(ctx, image, cardX, y, cardW, imageH, draft.imageZoom, draft.imagePositionX, draft.imagePositionY);
       const gradient = ctx.createLinearGradient(0, y, 0, y + imageH);
-      gradient.addColorStop(0, "rgba(24,25,35,0.10)");
-      gradient.addColorStop(0.50, "rgba(24,25,35,0.15)");
-      gradient.addColorStop(1, "rgba(24,25,35,0.93)");
+      gradient.addColorStop(0, ACTIVE_BLOCK_THEME.imageOverlay[0]);
+      gradient.addColorStop(0.50, ACTIVE_BLOCK_THEME.imageOverlay[1]);
+      gradient.addColorStop(1, ACTIVE_BLOCK_THEME.imageOverlay[2]);
       ctx.fillStyle = gradient;
       ctx.fillRect(cardX, y, cardW, imageH);
       ctx.restore();
     }
-    drawHeroTitle(ctx, draft, contentX, y + imageH - 154, contentW, true, paint);
+    drawHeroTitle(ctx, draft, contentX, y + imageH - 184, contentW, true, paint);
     y += imageH;
   } else {
-    const headerH = 224;
+    const headerH = 236;
     if (paint) {
       const gradient = ctx.createLinearGradient(cardX, y, cardX + cardW, y + headerH);
-      gradient.addColorStop(0, "#244b55");
-      gradient.addColorStop(0.58, "#376b70");
-      gradient.addColorStop(1, "#6f9f96");
+      gradient.addColorStop(0, ACTIVE_BLOCK_THEME.headerGradient[0]);
+      gradient.addColorStop(0.58, ACTIVE_BLOCK_THEME.headerGradient[1]);
+      gradient.addColorStop(1, ACTIVE_BLOCK_THEME.headerGradient[2]);
       roundedRect(ctx, cardX, y, cardW, headerH, 8, gradient);
       drawConstellation(ctx, cardX, y, cardW, headerH);
     }
-    drawHeroTitle(ctx, draft, contentX, y + 42, contentW, false, paint);
+    drawHeroTitle(ctx, draft, contentX, y + 34, contentW, false, paint);
     y += headerH;
   }
 
@@ -1026,20 +1164,25 @@ function drawStatblock(ctx, draft, width, paint, image, measuredHeight = null) {
   }
   y += descriptionH + 44;
 
-  if (draft.kind === "environment") y = drawEnvironmentBody(ctx, draft, contentX, y, contentW, paint);
-  else y = drawAdversaryBody(ctx, draft, contentX, y, contentW, paint);
+  const isPlayerMode = renderMode === "player";
+  if (!isPlayerMode) {
+    if (draft.kind === "environment") y = drawEnvironmentBody(ctx, draft, contentX, y, contentW, paint);
+    else y = drawAdversaryBody(ctx, draft, contentX, y, contentW, paint);
 
-  y += 12;
-  if (paint) {
-    drawFooterOrnament(ctx, contentX, y, contentW);
-    ctx.fillStyle = PALETTE.muted;
-    ctx.font = "500 15px Arial";
-    ctx.textAlign = "left";
-    ctx.fillText("CREACIÓN NO OFICIAL · COMPATIBLE CON DAGGERHEART", contentX, y + 38);
-    ctx.textAlign = "right";
-    ctx.fillText("FORJA DE BLOQUES", contentX + contentW, y + 38);
+    y += 12;
+    if (paint) {
+      drawFooterOrnament(ctx, contentX, y, contentW);
+      ctx.fillStyle = PALETTE.muted;
+      ctx.font = "500 15px Arial";
+      ctx.textAlign = "left";
+      ctx.fillText("CREACIÓN NO OFICIAL · COMPATIBLE CON DAGGERHEART", contentX, y + 38);
+      ctx.textAlign = "right";
+      ctx.fillText("FORJA DE BLOQUES", contentX + contentW, y + 38);
+    }
+    y += 70;
+  } else {
+    y += 8;
   }
-  y += 70;
 
   const finalHeight = y + outer;
   if (paint) {
@@ -1066,9 +1209,11 @@ function drawHeroTitle(ctx, draft, x, y, width, onImage, paint) {
     const lineY = y + titleSize + 19;
     ctx.fillStyle = PALETTE.gold;
     ctx.fillRect(x, lineY, Math.min(170, width * 0.25), 4);
-    ctx.fillStyle = onImage ? "rgba(255,255,255,0.82)" : "#ddd7e5";
-    ctx.font = "600 23px Arial";
-    ctx.fillText(`TIER ${draft.tier} · ${draft.type || (draft.kind === "environment" ? "AMBIENTE" : "ADVERSARIO")}`.toLocaleUpperCase("es-CL"), x, lineY + 37);
+    const metaColor = onImage ? "rgba(255,255,255,0.86)" : "rgba(255,255,255,0.84)";
+    ctx.fillStyle = metaColor;
+    ctx.font = "600 22px Arial";
+    ctx.fillText(`TIER ${draft.tier} · ${draft.type || (draft.kind === "environment" ? "AMBIENTE" : "ADVERSARIO")}`.toLocaleUpperCase("es-CL"), x, lineY + 35);
+    ctx.fillText(`DIFICULTAD ${draft.difficulty}`.toLocaleUpperCase("es-CL"), x, lineY + 68);
     const kindLabel = draft.kind === "environment" ? "AMBIENTE" : "ADVERSARIO";
     const badgeW = ctx.measureText(kindLabel).width + 42;
     pill(ctx, x + width - badgeW, y + 8, badgeW, 38, PALETTE.gold, PALETTE.deep, kindLabel, 16);
@@ -1091,20 +1236,6 @@ function drawEnvironmentBody(ctx, draft, x, y, width, paint) {
     drawWrappedText(ctx, impulseText, x + labelW, y + 23, width - labelW - 22, 22, PALETTE.deep, 1.38, "600 22px Arial");
   }
   y += impulseH + 14;
-
-  const difficultyH = 82;
-  if (paint) {
-    roundedRect(ctx, x, y, width, difficultyH, 14, PALETTE.bluePale);
-    ctx.fillStyle = PALETTE.blueStrong;
-    ctx.fillRect(x, y, 7, difficultyH);
-    drawMetaLabel(ctx, "DIFICULTAD", x + 28, y + 31);
-    ctx.fillStyle = PALETTE.deep;
-    ctx.font = "700 38px Georgia";
-    ctx.textAlign = "right";
-    ctx.fillText(String(draft.difficulty), x + width - 30, y + 55);
-    ctx.textAlign = "left";
-  }
-  y += difficultyH + 14;
 
   const adversaryLines = adversaries.length ? adversaries : ["Sin adversarios potenciales definidos"];
   let adversaryH = 40;
@@ -1138,7 +1269,6 @@ function drawAdversaryBody(ctx, draft, x, y, width, paint) {
   y += motiveH + 14;
 
   const stats = [
-    ["DIFICULTAD", draft.difficulty],
     ["UMBRALES", `${draft.thresholds.major}/${draft.thresholds.severe}`],
     ["PV", draft.hp],
     ["ESTRÉS", draft.stress],
@@ -1149,7 +1279,7 @@ function drawAdversaryBody(ctx, draft, x, y, width, paint) {
   if (paint) {
     stats.forEach(([label, value], index) => {
       const sx = x + index * (statW + statGap);
-      const statFill = index === 0 ? PALETTE.bluePale : (index % 2 ? PALETTE.mint : PALETTE.paperAlt);
+      const statFill = index % 2 === 0 ? PALETTE.bluePale : PALETTE.mint;
       roundedRect(ctx, sx, y, statW, 98, 14, statFill);
       ctx.strokeStyle = index === 0 ? PALETTE.blueStrong : PALETTE.line;
       ctx.lineWidth = 1.5;
@@ -1479,12 +1609,12 @@ function wrapLines(ctx, value, maxWidth) {
 
 function signedNumber(value) { const n = Number(value) || 0; return n >= 0 ? `+${n}` : String(n); }
 
-async function renderExportCanvas() {
+async function renderExportCanvas(exportMode = "complete") {
   const requestedScale = Number(exportScaleSelect.value) || 2;
   const draft = structuredClone(currentDraft());
   const image = draft.imageDataUrl ? await loadImage(draft.imageDataUrl) : null;
   const scratch = document.createElement("canvas").getContext("2d");
-  const logicalHeight = Math.ceil(drawStatblock(scratch, draft, LOGICAL_WIDTH, false, image, null));
+  const logicalHeight = Math.ceil(drawStatblock(scratch, draft, LOGICAL_WIDTH, false, image, null, exportMode));
   const dimensionLimit = 30000;
   const pixelLimit = 85000000;
   const safeScale = Math.max(0.45, Math.min(
@@ -1494,37 +1624,43 @@ async function renderExportCanvas() {
     Math.sqrt(pixelLimit / (LOGICAL_WIDTH * logicalHeight))
   ));
   const canvas = document.createElement("canvas");
-  renderStatblock(canvas, draft, safeScale, image);
+  renderStatblock(canvas, draft, safeScale, image, exportMode);
   if (safeScale + 0.01 < requestedScale) {
     toast("La resolución se ajustó automáticamente para evitar exceder el límite del navegador.");
   }
   return canvas;
 }
 
-async function exportPng() {
+async function exportPng(exportMode = "complete") {
+  const mode = exportMode === "player" ? "player" : "complete";
   try {
-    toast("Preparando PNG…");
-    const canvas = await renderExportCanvas();
+    toast(mode === "player" ? "Preparando PNG en modo jugador…" : "Preparando PNG completo…");
+    const canvas = await renderExportCanvas(mode);
     const blob = await canvasToBlob(canvas, "image/png");
-    downloadBlob(blob, `${safeFilename(currentDraft().title)}_${activeKind === "environment" ? "ambiente" : "adversario"}.png`);
-    toast("PNG descargado.", "success");
+    const kind = activeKind === "environment" ? "ambiente" : "adversario";
+    const suffix = mode === "player" ? `${kind}_modo_jugador` : kind;
+    downloadBlob(blob, `${safeFilename(currentDraft().title)}_${suffix}.png`);
+    toast(mode === "player" ? "PNG para jugadores descargado." : "PNG completo descargado.", "success");
   } catch (error) {
     console.error(error);
     toast("No fue posible exportar el PNG.", "error");
   }
 }
 
-async function exportPdf() {
+async function exportPdf(exportMode = "complete") {
+  const mode = exportMode === "player" ? "player" : "complete";
   try {
-    toast("Preparando PDF…");
-    const canvas = await renderExportCanvas();
+    toast(mode === "player" ? "Preparando PDF en modo jugador…" : "Preparando PDF completo…");
+    const canvas = await renderExportCanvas(mode);
     const jpegBlob = await canvasToBlob(canvas, "image/jpeg", 0.94);
     const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
     const pageWidth = 595.28;
     const pageHeight = pageWidth * canvas.height / canvas.width;
     const pdf = buildSingleImagePdf(jpegBytes, canvas.width, canvas.height, pageWidth, pageHeight);
-    downloadBlob(new Blob([pdf], { type: "application/pdf" }), `${safeFilename(currentDraft().title)}_${activeKind === "environment" ? "ambiente" : "adversario"}.pdf`);
-    toast("PDF descargado.", "success");
+    const kind = activeKind === "environment" ? "ambiente" : "adversario";
+    const suffix = mode === "player" ? `${kind}_modo_jugador` : kind;
+    downloadBlob(new Blob([pdf], { type: "application/pdf" }), `${safeFilename(currentDraft().title)}_${suffix}.pdf`);
+    toast(mode === "player" ? "PDF para jugadores descargado." : "PDF completo descargado.", "success");
   } catch (error) {
     console.error(error);
     toast("No fue posible exportar el PDF.", "error");
