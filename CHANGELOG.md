@@ -1,5 +1,14 @@
 # Historial de cambios
 
+## 3.0.0 — Reordenamiento y renovación visual
+
+- Los rasgos ahora pueden reordenarse mediante arrastre o con botones de flecha.
+- Las flechas se desactivan automáticamente en el primer y último rasgo.
+- Se eliminó el texto explicativo junto a la dificultad del ambiente; ahora se presenta únicamente como valor numérico.
+- Se renovó el diseño de los bloques con una paleta pastel de azules, verdes, menta y tonos arena.
+- Se mantuvo el esquema de datos de la versión 2 para conservar compatibilidad con sus JSON exportados.
+- Se actualizó la caché offline de la PWA.
+
 ## Versión 2 — Ingredientes y perfiles de sabor
 
 - Se añadió una sección de ingredientes exclusiva para adversarios.

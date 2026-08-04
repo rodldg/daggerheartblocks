@@ -1,4 +1,4 @@
-const CACHE_NAME = "forja-bloques-v2";
+const CACHE_NAME = "forja-bloques-v3";
 const APP_SHELL = ["./", "./index.html", "./styles.css", "./app.js", "./icon.svg", "./manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {

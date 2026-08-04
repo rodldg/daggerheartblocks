@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = 2;
+const APP_VERSION = 3;
 const AUTOSAVE_KEY = "forja-daggerheart-autosave-v1";
 const LIBRARY_KEY = "forja-daggerheart-library-v1";
 const MAX_IMPULSES = 20;
@@ -21,21 +21,27 @@ const FLAVORS = [
 ];
 
 const PALETTE = {
-  background: "#d7d0c4",
-  paper: "#fbf7ef",
-  paperAlt: "#f2ecf6",
-  ink: "#20222b",
-  muted: "#656474",
-  deep: "#252735",
-  plum: "#5d406f",
-  violet: "#8161a7",
-  violetDark: "#55396d",
-  violetPale: "#eee7f5",
-  gold: "#c7a05e",
-  goldPale: "#f2e5c9",
-  red: "#954e53",
-  line: "#d5cdbf",
+  background: "#dce8e5",
+  paper: "#fbfdfc",
+  paperAlt: "#edf6f3",
+  ink: "#203438",
+  muted: "#61777a",
+  deep: "#294f59",
+  plum: "#3f7478",
+  violet: "#79aeb8",
+  violetDark: "#34636b",
+  violetPale: "#e4f1f3",
+  gold: "#d7bd86",
+  goldPale: "#f6efdf",
+  red: "#9d6763",
+  line: "#c7d9d4",
   white: "#ffffff",
+  mint: "#dfeee6",
+  mintStrong: "#77a98f",
+  bluePale: "#e3eef3",
+  blueStrong: "#6f9eaa",
+  sandPale: "#f3ead7",
+  coralPale: "#f3e4e0",
 };
 
 const EXAMPLES = {
@@ -183,6 +189,7 @@ let renderToken = 0;
 let imageCache = { src: null, image: null };
 let pendingConfirm = null;
 let autosaveTimer = null;
+let draggedFeatureIndex = null;
 
 const editorForm = document.getElementById("editorForm");
 const statblockCanvas = document.getElementById("statblockCanvas");
@@ -350,6 +357,8 @@ function bindGlobalEvents() {
   editorForm.addEventListener("input", handleEditorInput);
   editorForm.addEventListener("change", handleEditorChange);
   editorForm.addEventListener("click", handleEditorClick);
+  editorForm.addEventListener("dragstart", handleFeatureDragStart);
+  editorForm.addEventListener("dragend", handleFeatureDragEnd);
   editorForm.addEventListener("dragover", handleDragOver);
   editorForm.addEventListener("dragleave", handleDragLeave);
   editorForm.addEventListener("drop", handleDrop);
@@ -590,20 +599,27 @@ function renderFeaturesSection(draft) {
   return `
     <section class="form-section">
       <h2 class="section-title">Rasgos</h2>
-      <p class="section-help">Cada rasgo puede incluir un texto principal y una lista opcional de detalles.</p>
-      <div>
-        ${draft.features.map((feature, index) => featureEditor(feature, index)).join("")}
+      <p class="section-help">Cada rasgo puede incluir un texto principal y detalles opcionales. Reordénalos arrastrando el asa o usando las flechas.</p>
+      <div class="feature-list" data-feature-list>
+        ${draft.features.map((feature, index) => featureEditor(feature, index, draft.features.length)).join("")}
       </div>
       <button class="add-button" type="button" data-action="add-feature" ${draft.features.length >= MAX_FEATURES ? "disabled" : ""}>＋ Agregar rasgo · ${draft.features.length}/${MAX_FEATURES}</button>
     </section>`;
 }
 
-function featureEditor(feature, index) {
+function featureEditor(feature, index, total) {
   return `
-    <article class="feature-editor">
+    <article class="feature-editor" data-feature-editor data-index="${index}">
       <div class="feature-editor-header">
-        <span class="feature-index">RASGO ${String(index + 1).padStart(2, "0")}</span>
-        <button class="remove-button" type="button" data-action="remove-feature" data-index="${index}" aria-label="Quitar rasgo">×</button>
+        <div class="feature-editor-identity">
+          <button class="feature-drag-handle" type="button" draggable="true" data-feature-drag-handle data-index="${index}" aria-label="Arrastrar rasgo ${index + 1}" title="Arrastrar para cambiar de posición">⋮⋮</button>
+          <span class="feature-index">RASGO ${String(index + 1).padStart(2, "0")}</span>
+        </div>
+        <div class="feature-order-actions" aria-label="Orden del rasgo ${index + 1}">
+          <button class="feature-order-button" type="button" data-action="move-feature-up" data-index="${index}" aria-label="Mover rasgo hacia arriba" title="Mover hacia arriba" ${index === 0 ? "disabled" : ""}>↑</button>
+          <button class="feature-order-button" type="button" data-action="move-feature-down" data-index="${index}" aria-label="Mover rasgo hacia abajo" title="Mover hacia abajo" ${index === total - 1 ? "disabled" : ""}>↓</button>
+          <button class="remove-button" type="button" data-action="remove-feature" data-index="${index}" aria-label="Quitar rasgo">×</button>
+        </div>
       </div>
       <div class="form-grid">
         ${textField("Nombre", `features.${index}.name`, feature.name, 90)}
@@ -707,6 +723,12 @@ function handleEditorClick(event) {
     ingredient.flavors.splice(flavorIndex, 1);
   }
   else if (action === "add-feature" && draft.features.length < MAX_FEATURES) draft.features.push({ name: "", type: "Pasiva", text: "", bullets: [] });
+  else if (action === "move-feature-up") {
+    if (!moveFeature(index, index - 1)) return;
+  }
+  else if (action === "move-feature-down") {
+    if (!moveFeature(index, index + 1)) return;
+  }
   else if (action === "remove-feature") draft.features.splice(index, 1);
   else return;
 
@@ -723,14 +745,83 @@ function handleEditorClick(event) {
   queueAutosave();
 }
 
+function moveFeature(fromIndex, toIndex) {
+  const features = currentDraft().features;
+  if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) return false;
+  if (fromIndex < 0 || fromIndex >= features.length || toIndex < 0 || toIndex >= features.length || fromIndex === toIndex) return false;
+  const [feature] = features.splice(fromIndex, 1);
+  features.splice(toIndex, 0, feature);
+  return true;
+}
+
+function handleFeatureDragStart(event) {
+  const handle = event.target.closest("[data-feature-drag-handle]");
+  if (!handle) return;
+  draggedFeatureIndex = Number(handle.dataset.index);
+  const card = handle.closest("[data-feature-editor]");
+  card?.classList.add("is-dragging");
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(draggedFeatureIndex));
+  }
+}
+
+function handleFeatureDragEnd() {
+  draggedFeatureIndex = null;
+  clearFeatureDropIndicators();
+  editorForm.querySelectorAll(".is-dragging").forEach((element) => element.classList.remove("is-dragging"));
+}
+
+function clearFeatureDropIndicators() {
+  editorForm.querySelectorAll(".drop-before, .drop-after").forEach((element) => element.classList.remove("drop-before", "drop-after"));
+}
+
 function handleDragOver(event) {
+  const featureCard = event.target.closest("[data-feature-editor]");
+  if (draggedFeatureIndex !== null && featureCard) {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    clearFeatureDropIndicators();
+    const rect = featureCard.getBoundingClientRect();
+    featureCard.classList.add(event.clientY < rect.top + rect.height / 2 ? "drop-before" : "drop-after");
+    return;
+  }
+
   const zone = event.target.closest("[data-dropzone]");
   if (!zone) return;
   event.preventDefault();
   zone.classList.add("dragging");
 }
-function handleDragLeave(event) { event.target.closest("[data-dropzone]")?.classList.remove("dragging"); }
+
+function handleDragLeave(event) {
+  const featureCard = event.target.closest("[data-feature-editor]");
+  if (featureCard && !featureCard.contains(event.relatedTarget)) featureCard.classList.remove("drop-before", "drop-after");
+  event.target.closest("[data-dropzone]")?.classList.remove("dragging");
+}
+
 function handleDrop(event) {
+  const featureCard = event.target.closest("[data-feature-editor]");
+  if (draggedFeatureIndex !== null && featureCard) {
+    event.preventDefault();
+    const targetIndex = Number(featureCard.dataset.index);
+    const rect = featureCard.getBoundingClientRect();
+    const placeAfter = event.clientY >= rect.top + rect.height / 2;
+    let insertionIndex = targetIndex + (placeAfter ? 1 : 0);
+    const sourceIndex = draggedFeatureIndex;
+    const features = currentDraft().features;
+    if (sourceIndex < insertionIndex) insertionIndex -= 1;
+    insertionIndex = Math.max(0, Math.min(features.length - 1, insertionIndex));
+    clearFeatureDropIndicators();
+    draggedFeatureIndex = null;
+    if (moveFeature(sourceIndex, insertionIndex)) {
+      renderEditor();
+      schedulePreview();
+      queueAutosave();
+      toast("Orden de rasgos actualizado.", "success");
+    }
+    return;
+  }
+
   const zone = event.target.closest("[data-dropzone]");
   if (!zone) return;
   event.preventDefault();
@@ -905,9 +996,9 @@ function drawStatblock(ctx, draft, width, paint, image, measuredHeight = null) {
     const headerH = 224;
     if (paint) {
       const gradient = ctx.createLinearGradient(cardX, y, cardX + cardW, y + headerH);
-      gradient.addColorStop(0, PALETTE.deep);
-      gradient.addColorStop(0.62, PALETTE.plum);
-      gradient.addColorStop(1, PALETTE.violetDark);
+      gradient.addColorStop(0, "#244b55");
+      gradient.addColorStop(0.58, "#376b70");
+      gradient.addColorStop(1, "#6f9f96");
       roundedRect(ctx, cardX, y, cardW, headerH, 8, gradient);
       drawConstellation(ctx, cardX, y, cardW, headerH);
     }
@@ -916,7 +1007,11 @@ function drawStatblock(ctx, draft, width, paint, image, measuredHeight = null) {
   }
 
   if (paint) {
-    ctx.fillStyle = PALETTE.gold;
+    const accentGradient = ctx.createLinearGradient(cardX, y, cardX + cardW, y);
+    accentGradient.addColorStop(0, PALETTE.blueStrong);
+    accentGradient.addColorStop(0.55, PALETTE.mintStrong);
+    accentGradient.addColorStop(1, PALETTE.gold);
+    ctx.fillStyle = accentGradient;
     ctx.fillRect(cardX, y, cardW, 7);
   }
   y += 7;
@@ -924,8 +1019,8 @@ function drawStatblock(ctx, draft, width, paint, image, measuredHeight = null) {
   const description = draft.description || "Agrega una descripción corta para presentar este bloque.";
   const descriptionH = textBlockHeight(ctx, description, 28, contentW - 44, 1.42) + 46;
   if (paint) {
-    roundedRect(ctx, contentX, y + 22, contentW, descriptionH, 16, PALETTE.paperAlt);
-    ctx.fillStyle = PALETTE.violet;
+    roundedRect(ctx, contentX, y + 22, contentW, descriptionH, 16, PALETTE.bluePale);
+    ctx.fillStyle = PALETTE.blueStrong;
     ctx.fillRect(contentX, y + 22, 7, descriptionH);
     drawWrappedText(ctx, description, contentX + 28, y + 45, contentW - 52, 28, PALETTE.ink, 1.42, "italic 28px Georgia");
   }
@@ -952,7 +1047,7 @@ function drawStatblock(ctx, draft, width, paint, image, measuredHeight = null) {
     ctx.strokeStyle = PALETTE.deep;
     ctx.lineWidth = 3;
     roundedStroke(ctx, cardX, topY, cardW, finalHeight - topY - outer, 8);
-    ctx.strokeStyle = PALETTE.gold;
+    ctx.strokeStyle = PALETTE.blueStrong;
     ctx.lineWidth = 1.5;
     roundedStroke(ctx, cardX + 10, topY + 10, cardW - 20, finalHeight - topY - outer - 20, 5);
     ctx.restore();
@@ -991,20 +1086,23 @@ function drawEnvironmentBody(ctx, draft, x, y, width, paint) {
   const impulseText = impulses.length ? impulses.join(" · ") : "Sin impulsos definidos";
   const impulseH = Math.max(70, textBlockHeight(ctx, impulseText, 22, width - labelW - 45, 1.38) + 30);
   if (paint) {
-    roundedRect(ctx, x, y, width, impulseH, 12, PALETTE.violetPale);
+    roundedRect(ctx, x, y, width, impulseH, 14, PALETTE.mint);
     drawMetaLabel(ctx, "IMPULSOS", x + 22, y + 25);
-    drawWrappedText(ctx, impulseText, x + labelW, y + 23, width - labelW - 22, 22, PALETTE.red, 1.38, "500 22px Arial");
+    drawWrappedText(ctx, impulseText, x + labelW, y + 23, width - labelW - 22, 22, PALETTE.deep, 1.38, "600 22px Arial");
   }
   y += impulseH + 14;
 
-  const difficultyH = 76;
+  const difficultyH = 82;
   if (paint) {
-    roundedRect(ctx, x, y, width, difficultyH, 12, PALETTE.paperAlt);
-    drawMetaLabel(ctx, "DIFICULTAD", x + 22, y + 27);
-    statGem(ctx, x + labelW, y + 12, 52, String(draft.difficulty), PALETTE.violetDark);
-    ctx.fillStyle = PALETTE.muted;
-    ctx.font = "500 20px Arial";
-    ctx.fillText("Número objetivo recomendado para enfrentar el ambiente.", x + labelW + 72, y + 47);
+    roundedRect(ctx, x, y, width, difficultyH, 14, PALETTE.bluePale);
+    ctx.fillStyle = PALETTE.blueStrong;
+    ctx.fillRect(x, y, 7, difficultyH);
+    drawMetaLabel(ctx, "DIFICULTAD", x + 28, y + 31);
+    ctx.fillStyle = PALETTE.deep;
+    ctx.font = "700 38px Georgia";
+    ctx.textAlign = "right";
+    ctx.fillText(String(draft.difficulty), x + width - 30, y + 55);
+    ctx.textAlign = "left";
   }
   y += difficultyH + 14;
 
@@ -1013,11 +1111,11 @@ function drawEnvironmentBody(ctx, draft, x, y, width, paint) {
   adversaryLines.forEach((item) => { adversaryH += textBlockHeight(ctx, item, 21, width - 66, 1.35) + 14; });
   adversaryH += 24;
   if (paint) {
-    roundedRect(ctx, x, y, width, adversaryH, 12, "#f7f1e6");
+    roundedRect(ctx, x, y, width, adversaryH, 14, PALETTE.paperAlt);
     drawMetaLabel(ctx, "ADVERSARIOS POTENCIALES", x + 22, y + 26);
     let ty = y + 62;
     adversaryLines.forEach((item) => {
-      drawDiamond(ctx, x + 27, ty + 9, 7, PALETTE.gold);
+      drawDiamond(ctx, x + 27, ty + 9, 7, PALETTE.mintStrong);
       ty = drawWrappedText(ctx, item, x + 48, ty, width - 70, 21, PALETTE.ink, 1.35, "500 21px Arial") + 12;
     });
   }
@@ -1033,9 +1131,9 @@ function drawAdversaryBody(ctx, draft, x, y, width, paint) {
   const motiveText = motives.length ? motives.join(" · ") : "Sin impulsos o tácticas definidos";
   const motiveH = Math.max(72, textBlockHeight(ctx, motiveText, 22, width - 230, 1.38) + 30);
   if (paint) {
-    roundedRect(ctx, x, y, width, motiveH, 12, PALETTE.violetPale);
+    roundedRect(ctx, x, y, width, motiveH, 14, PALETTE.mint);
     drawMetaLabel(ctx, "IMPULSOS Y TÁCTICAS", x + 22, y + 25);
-    drawWrappedText(ctx, motiveText, x + 230, y + 23, width - 250, 22, PALETTE.red, 1.38, "500 22px Arial");
+    drawWrappedText(ctx, motiveText, x + 230, y + 23, width - 250, 22, PALETTE.deep, 1.38, "600 22px Arial");
   }
   y += motiveH + 14;
 
@@ -1051,12 +1149,16 @@ function drawAdversaryBody(ctx, draft, x, y, width, paint) {
   if (paint) {
     stats.forEach(([label, value], index) => {
       const sx = x + index * (statW + statGap);
-      roundedRect(ctx, sx, y, statW, 98, 12, index === 0 ? PALETTE.violetDark : PALETTE.deep);
+      const statFill = index === 0 ? PALETTE.bluePale : (index % 2 ? PALETTE.mint : PALETTE.paperAlt);
+      roundedRect(ctx, sx, y, statW, 98, 14, statFill);
+      ctx.strokeStyle = index === 0 ? PALETTE.blueStrong : PALETTE.line;
+      ctx.lineWidth = 1.5;
+      roundedStroke(ctx, sx, y, statW, 98, 14);
       ctx.textAlign = "center";
-      ctx.fillStyle = index === 0 ? PALETTE.goldPale : "#c8c5ce";
+      ctx.fillStyle = PALETTE.muted;
       ctx.font = "700 14px Arial";
       ctx.fillText(label, sx + statW / 2, y + 27);
-      ctx.fillStyle = PALETTE.white;
+      ctx.fillStyle = PALETTE.deep;
       ctx.font = "700 31px Georgia";
       ctx.fillText(String(value), sx + statW / 2, y + 69);
     });
@@ -1067,7 +1169,7 @@ function drawAdversaryBody(ctx, draft, x, y, width, paint) {
   const attackText = [draft.attack.name, draft.attack.range, draft.attack.damage].filter(Boolean).join(" · ") || "Ataque no definido";
   const attackH = Math.max(84, textBlockHeight(ctx, attackText, 23, width - 170, 1.35) + 34);
   if (paint) {
-    roundedRect(ctx, x, y, width, attackH, 12, "#f6ede2");
+    roundedRect(ctx, x, y, width, attackH, 14, PALETTE.coralPale);
     ctx.fillStyle = PALETTE.red;
     ctx.fillRect(x, y, 7, attackH);
     drawMetaLabel(ctx, "ATAQUE", x + 26, y + 29);
@@ -1080,9 +1182,9 @@ function drawAdversaryBody(ctx, draft, x, y, width, paint) {
     const experienceText = experiences.map((item) => `${item.name} ${signedNumber(item.modifier)}`).join(" · ");
     const expH = Math.max(72, textBlockHeight(ctx, experienceText, 21, width - 190, 1.35) + 30);
     if (paint) {
-      roundedRect(ctx, x, y, width, expH, 12, PALETTE.paperAlt);
+      roundedRect(ctx, x, y, width, expH, 14, PALETTE.bluePale);
       drawMetaLabel(ctx, "EXPERIENCIAS", x + 22, y + 25);
-      drawWrappedText(ctx, experienceText, x + 190, y + 23, width - 212, 21, PALETTE.violetDark, 1.35, "600 21px Arial");
+      drawWrappedText(ctx, experienceText, x + 190, y + 23, width - 212, 21, PALETTE.deep, 1.35, "600 21px Arial");
     }
     y += expH + 28;
   } else y += 14;
@@ -1112,19 +1214,19 @@ function drawIngredients(ctx, ingredients, x, y, width, paint) {
     const cardH = chipsOffset + chipMetrics.height + (featureH ? 18 + featureH : 0) + 25;
 
     if (paint) {
-      roundedRect(ctx, x, y, width, cardH, 14, index % 2 === 0 ? "#fffaf0" : "#f9f1e4");
+      roundedRect(ctx, x, y, width, cardH, 16, index % 2 === 0 ? PALETTE.sandPale : PALETTE.paperAlt);
       ctx.strokeStyle = PALETTE.line;
       ctx.lineWidth = 1.5;
-      roundedStroke(ctx, x, y, width, cardH, 14);
-      ctx.fillStyle = PALETTE.gold;
+      roundedStroke(ctx, x, y, width, cardH, 16);
+      ctx.fillStyle = PALETTE.mintStrong;
       ctx.fillRect(x, y, 8, cardH);
-      drawDiamond(ctx, x + 29, y + 29, 8, PALETTE.violetDark);
+      drawDiamond(ctx, x + 29, y + 29, 8, PALETTE.blueStrong);
       drawWrappedText(ctx, name, x + 50, y + 19, width - 82, 24, PALETTE.ink, 1.2, "700 24px Georgia");
 
       drawFlavorChips(ctx, flavors, x + 28, y + chipsOffset, width - 56);
       if (featureName) {
         const featureY = y + chipsOffset + chipMetrics.height + 18;
-        let featureBottom = drawWrappedText(ctx, featureName, x + 29, featureY, width - 58, 17, PALETTE.violetDark, 1.3, "700 17px Arial");
+        let featureBottom = drawWrappedText(ctx, featureName, x + 29, featureY, width - 58, 17, PALETTE.deep, 1.3, "700 17px Arial");
         if (featureText) {
           drawWrappedText(ctx, featureText, x + 29, featureBottom + 8, width - 58, 17, PALETTE.muted, 1.38, "500 17px Arial");
         }
@@ -1164,11 +1266,11 @@ function drawFlavorChips(ctx, flavors, x, y, maxWidth) {
       cx = x;
       cy += 44;
     }
-    roundedRect(ctx, cx, cy, chipW, 36, 18, PALETTE.violetPale);
-    ctx.strokeStyle = "rgba(85,57,109,0.22)";
+    roundedRect(ctx, cx, cy, chipW, 36, 18, PALETTE.bluePale);
+    ctx.strokeStyle = "rgba(52,99,107,0.24)";
     ctx.lineWidth = 1;
     roundedStroke(ctx, cx, cy, chipW, 36, 18);
-    ctx.fillStyle = PALETTE.violetDark;
+    ctx.fillStyle = PALETTE.deep;
     ctx.textAlign = "center";
     ctx.font = "700 16px Arial";
     ctx.fillText(label, cx + chipW / 2, cy + 24);
@@ -1200,23 +1302,23 @@ function drawFeatures(ctx, features, x, y, width, paint) {
     const cardH = 78 + bodyH + (bullets.length ? 18 + bulletsH : 0) + 30;
 
     if (paint) {
-      roundedRect(ctx, x, y, width, cardH, 14, index % 2 === 0 ? "#fffdf8" : "#faf6ef");
+      roundedRect(ctx, x, y, width, cardH, 16, index % 2 === 0 ? PALETTE.paper : PALETTE.paperAlt);
       ctx.strokeStyle = PALETTE.line;
       ctx.lineWidth = 1.5;
-      roundedStroke(ctx, x, y, width, cardH, 14);
-      ctx.fillStyle = PALETTE.violetDark;
+      roundedStroke(ctx, x, y, width, cardH, 16);
+      ctx.fillStyle = index % 2 === 0 ? PALETTE.blueStrong : PALETTE.mintStrong;
       ctx.fillRect(x, y, 8, cardH);
       drawDiamond(ctx, x + 29, y + 30, 9, PALETTE.gold);
       ctx.fillStyle = PALETTE.ink;
       ctx.font = "italic 700 25px Georgia";
       ctx.fillText(titleText, x + 50, y + 39);
-      ctx.fillStyle = PALETTE.gold;
+      ctx.fillStyle = index % 2 === 0 ? PALETTE.blueStrong : PALETTE.mintStrong;
       ctx.fillRect(x + 50, y + 54, Math.min(125, width * 0.18), 3);
       let ty = drawWrappedText(ctx, body, x + 28, y + 78, width - 56, 22, PALETTE.ink, 1.43, "500 22px Arial");
       if (bullets.length) {
         ty += 14;
         bullets.forEach((bullet) => {
-          drawDiamond(ctx, x + 39, ty + 8, 5.5, PALETTE.violet);
+          drawDiamond(ctx, x + 39, ty + 8, 5.5, PALETTE.mintStrong);
           ty = drawWrappedText(ctx, bullet, x + 58, ty, width - 86, 19, PALETTE.muted, 1.38, "500 19px Arial") + 11;
         });
       }
@@ -1232,7 +1334,10 @@ function drawSectionLabel(ctx, label, x, y, width, paint) {
     ctx.font = "700 25px Georgia";
     ctx.fillText(label, x + 18, y + 28);
     const labelWidth = ctx.measureText(label).width;
-    ctx.fillStyle = PALETTE.gold;
+    const labelGradient = ctx.createLinearGradient(x, y, x + labelWidth + 45, y);
+    labelGradient.addColorStop(0, PALETTE.blueStrong);
+    labelGradient.addColorStop(1, PALETTE.mintStrong);
+    ctx.fillStyle = labelGradient;
     ctx.fillRect(x, y + 40, labelWidth + 45, 4);
     ctx.fillStyle = PALETTE.line;
     ctx.fillRect(x + labelWidth + 55, y + 41, width - labelWidth - 55, 2);
@@ -1249,7 +1354,7 @@ function drawMetaLabel(ctx, label, x, y) {
 function drawFooterOrnament(ctx, x, y, width) {
   ctx.fillStyle = PALETTE.line;
   ctx.fillRect(x, y + 9, width, 2);
-  drawDiamond(ctx, x + width / 2, y + 10, 8, PALETTE.gold);
+  drawDiamond(ctx, x + width / 2, y + 10, 8, PALETTE.mintStrong);
 }
 
 function drawConstellation(ctx, x, y, w, h) {

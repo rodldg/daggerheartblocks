@@ -1,6 +1,6 @@
 # Forja de Bloques para Daggerheart
 
-Versión 2: incorpora botín culinario e ingredientes para adversarios.
+Versión 3: incorpora reordenamiento de rasgos, botín culinario y una renovación visual en tonos pastel.
 
 Aplicación web estática y serverless para diseñar bloques de **ambientes** y **adversarios** compatibles con Daggerheart. Está pensada para publicarse directamente en GitHub Pages (`github.io`) y no necesita backend, base de datos ni proceso de compilación.
 
@@ -12,6 +12,7 @@ Aplicación web estática y serverless para diseñar bloques de **ambientes** y 
 - Descripción corta de hasta 200 caracteres.
 - Hasta 20 impulsos o tácticas, con 100 caracteres por entrada.
 - Listas dinámicas de adversarios potenciales, experiencias, ingredientes y rasgos.
+- Reordenamiento de rasgos mediante arrastre o botones de flecha.
 - Hasta 10 ingredientes por adversario, cada uno con 1 a 3 sabores y potencia de 1 a 3.
 - Dados de sabor integrados: Dulce d4, Salado d6, Amargo d8, Ácido d10, Umami d12 y Raro d20.
 - Rasgo culinario opcional por ingrediente.
@@ -22,11 +23,6 @@ Aplicación web estática y serverless para diseñar bloques de **ambientes** y 
 - PWA básica y funcionamiento offline después de la primera carga.
 - Diseño responsive para escritorio, tablet y teléfono.
 - Sin dependencias externas ni servicios de terceros.
-
-
-## Vista previa
-
-![Interfaz de Forja de Bloques](./screenshot.png)
 
 ## Publicar en GitHub Pages
 
@@ -106,3 +102,22 @@ Los ingredientes se almacenan dentro de un adversario usando esta estructura:
 ```
 
 El archivo `ejemplo_adversario_ingredientes.json` puede importarse directamente desde la interfaz para revisar el formato.
+
+## Novedades de la versión 3
+
+### Reordenamiento de rasgos
+
+Los rasgos de ambientes y adversarios pueden cambiarse de posición de dos maneras:
+
+- Arrastrando el asa `⋮⋮` del rasgo hasta la posición deseada.
+- Usando los botones `↑` y `↓`.
+
+La interfaz impide mover el primer rasgo más arriba y el último más abajo. El orden visible en el editor es el mismo utilizado en la vista previa y en las exportaciones PNG, PDF y JSON.
+
+### Compatibilidad con JSON v2
+
+La estructura del objeto `block` se mantiene. La versión 3 sigue aceptando archivos exportados por la versión 2, incluidos los adversarios con ingredientes, sabores y rasgos culinarios. Los JSON exportados por esta versión tampoco añaden campos obligatorios nuevos dentro del bloque.
+
+### Renovación visual
+
+Los bloques generados utilizan una paleta pastel coordinada de azul, verde menta, arena y coral suave, con mayor jerarquía tipográfica y tarjetas de estadísticas más limpias.
