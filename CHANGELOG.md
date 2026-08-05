@@ -1,5 +1,18 @@
 # Historial de cambios
 
+## Versión 6
+
+- Reorganiza la cabecera de los bloques para evitar colisiones con títulos extensos.
+- Alinea título, tier, tipo y dificultad en la esquina superior izquierda.
+- Mueve la etiqueta `AMBIENTE` o `ADVERSARIO` a la esquina inferior derecha.
+- Permite que el título se distribuya automáticamente en hasta tres líneas.
+- Ajusta gradualmente el tamaño del título antes de truncarlo.
+- Aumenta automáticamente la altura efectiva de la cabecera cuando el título requiere más espacio.
+- Añade una sombra localizada sobre imágenes para mejorar el contraste del encabezado.
+- Mantiene el mismo comportamiento en vista previa, PNG, PDF y modo jugador.
+- Conserva la estructura de JSON utilizada por las versiones 2 a 5.
+- Actualiza la caché PWA a `forja-bloques-v6`.
+
 ## 5.0.0 — Exportación para jugadores
 
 - Los botones PNG y PDF ahora abren una lista desplegable con las opciones **Bloque completo** y **Modo jugador**.

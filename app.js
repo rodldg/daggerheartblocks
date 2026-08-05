@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = 5;
+const APP_VERSION = 6;
 const APP_THEME_KEY = "forja-daggerheart-app-theme-v1";
 const DEFAULT_BLOCK_THEME = "bruma-menta";
 const AUTOSAVE_KEY = "forja-daggerheart-autosave-v1";
@@ -1115,23 +1115,36 @@ function drawStatblock(ctx, draft, width, paint, image, measuredHeight = null, r
 
   const topY = y;
   if (hasImage) {
-    const imageH = Number(draft.imageHeight) || 340;
+    const requestedImageH = Number(draft.imageHeight) || 340;
+    const heroLayout = measureHeroLayout(ctx, draft, contentW, requestedImageH);
+    const imageH = Math.max(requestedImageH, heroLayout.minimumHeight);
     if (paint) {
       ctx.save();
       roundedClip(ctx, cardX, y, cardW, imageH, 8, true, false);
       drawImageCover(ctx, image, cardX, y, cardW, imageH, draft.imageZoom, draft.imagePositionX, draft.imagePositionY);
-      const gradient = ctx.createLinearGradient(0, y, 0, y + imageH);
-      gradient.addColorStop(0, ACTIVE_BLOCK_THEME.imageOverlay[0]);
-      gradient.addColorStop(0.50, ACTIVE_BLOCK_THEME.imageOverlay[1]);
-      gradient.addColorStop(1, ACTIVE_BLOCK_THEME.imageOverlay[2]);
-      ctx.fillStyle = gradient;
+
+      // Oscurece suavemente la parte superior izquierda para que el texto
+      // conserve contraste sin ocultar innecesariamente la ilustración.
+      const verticalShade = ctx.createLinearGradient(0, y, 0, y + imageH);
+      verticalShade.addColorStop(0, "rgba(17, 29, 33, 0.64)");
+      verticalShade.addColorStop(0.48, ACTIVE_BLOCK_THEME.imageOverlay[1]);
+      verticalShade.addColorStop(1, ACTIVE_BLOCK_THEME.imageOverlay[2]);
+      ctx.fillStyle = verticalShade;
+      ctx.fillRect(cardX, y, cardW, imageH);
+
+      const horizontalShade = ctx.createLinearGradient(cardX, y, cardX + cardW * 0.78, y);
+      horizontalShade.addColorStop(0, "rgba(10, 24, 28, 0.44)");
+      horizontalShade.addColorStop(0.58, "rgba(10, 24, 28, 0.12)");
+      horizontalShade.addColorStop(1, "rgba(10, 24, 28, 0)");
+      ctx.fillStyle = horizontalShade;
       ctx.fillRect(cardX, y, cardW, imageH);
       ctx.restore();
     }
-    drawHeroTitle(ctx, draft, contentX, y + imageH - 184, contentW, true, paint);
+    drawHeroTitle(ctx, draft, contentX, y, contentW, imageH, true, paint, heroLayout);
     y += imageH;
   } else {
-    const headerH = 236;
+    const heroLayout = measureHeroLayout(ctx, draft, contentW, 236);
+    const headerH = Math.max(236, heroLayout.minimumHeight);
     if (paint) {
       const gradient = ctx.createLinearGradient(cardX, y, cardX + cardW, y + headerH);
       gradient.addColorStop(0, ACTIVE_BLOCK_THEME.headerGradient[0]);
@@ -1140,7 +1153,7 @@ function drawStatblock(ctx, draft, width, paint, image, measuredHeight = null, r
       roundedRect(ctx, cardX, y, cardW, headerH, 8, gradient);
       drawConstellation(ctx, cardX, y, cardW, headerH);
     }
-    drawHeroTitle(ctx, draft, contentX, y + 34, contentW, false, paint);
+    drawHeroTitle(ctx, draft, contentX, y, contentW, headerH, false, paint, heroLayout);
     y += headerH;
   }
 
@@ -1198,26 +1211,102 @@ function drawStatblock(ctx, draft, width, paint, image, measuredHeight = null, r
   return finalHeight;
 }
 
-function drawHeroTitle(ctx, draft, x, y, width, onImage, paint) {
+function measureHeroLayout(ctx, draft, width, requestedHeight = 236) {
   const title = (draft.title || "Sin título").toLocaleUpperCase("es-CL");
-  const titleSize = fitFontSize(ctx, title, width - 10, 58, 28, "700", "Georgia");
-  if (paint) {
-    ctx.textAlign = "left";
-    ctx.fillStyle = PALETTE.white;
+  const titleMaxWidth = Math.max(260, width - 12);
+  const maxTitleLines = 3;
+  let titleSize = 58;
+  let titleLines = [];
+
+  while (titleSize >= 32) {
     ctx.font = `700 ${titleSize}px Georgia`;
-    ctx.fillText(title, x, y + titleSize);
-    const lineY = y + titleSize + 19;
-    ctx.fillStyle = PALETTE.gold;
-    ctx.fillRect(x, lineY, Math.min(170, width * 0.25), 4);
-    const metaColor = onImage ? "rgba(255,255,255,0.86)" : "rgba(255,255,255,0.84)";
-    ctx.fillStyle = metaColor;
-    ctx.font = "600 22px Arial";
-    ctx.fillText(`TIER ${draft.tier} · ${draft.type || (draft.kind === "environment" ? "AMBIENTE" : "ADVERSARIO")}`.toLocaleUpperCase("es-CL"), x, lineY + 35);
-    ctx.fillText(`DIFICULTAD ${draft.difficulty}`.toLocaleUpperCase("es-CL"), x, lineY + 68);
-    const kindLabel = draft.kind === "environment" ? "AMBIENTE" : "ADVERSARIO";
-    const badgeW = ctx.measureText(kindLabel).width + 42;
-    pill(ctx, x + width - badgeW, y + 8, badgeW, 38, PALETTE.gold, PALETTE.deep, kindLabel, 16);
+    titleLines = wrapLines(ctx, title, titleMaxWidth);
+    if (titleLines.length <= maxTitleLines) break;
+    titleSize -= 2;
   }
+
+  // Una palabra excepcionalmente larga no debe salirse del bloque.
+  while (titleSize > 28 && titleLines.some((line) => ctx.measureText(line).width > titleMaxWidth)) {
+    titleSize -= 1;
+    ctx.font = `700 ${titleSize}px Georgia`;
+    titleLines = wrapLines(ctx, title, titleMaxWidth);
+  }
+
+  if (titleLines.length > maxTitleLines) {
+    titleLines = titleLines.slice(0, maxTitleLines);
+    let last = titleLines[maxTitleLines - 1];
+    while (last.length > 1 && ctx.measureText(`${last}…`).width > titleMaxWidth) last = last.slice(0, -1);
+    titleLines[maxTitleLines - 1] = `${last.trimEnd()}…`;
+  }
+
+  const topPadding = 34;
+  const titleStep = titleSize * 1.02;
+  const titleHeight = titleLines.length * titleStep;
+  const ruleY = topPadding + titleHeight + 17;
+  const metaFirstBaseline = ruleY + 37;
+  const metaSecondBaseline = metaFirstBaseline + 33;
+  const textBottom = metaSecondBaseline + 8;
+  const badgeHeight = 40;
+  const badgeBottomPadding = 28;
+  const badgeTop = Math.max(textBottom + 24, requestedHeight - badgeBottomPadding - badgeHeight);
+  const minimumHeight = Math.ceil(Math.max(requestedHeight, badgeTop + badgeHeight + badgeBottomPadding));
+
+  return {
+    title,
+    titleSize,
+    titleLines,
+    topPadding,
+    titleStep,
+    ruleY,
+    metaFirstBaseline,
+    metaSecondBaseline,
+    textBottom,
+    badgeHeight,
+    badgeBottomPadding,
+    minimumHeight,
+  };
+}
+
+function drawHeroTitle(ctx, draft, x, heroY, width, heroHeight, onImage, paint, measuredLayout = null) {
+  const layout = measuredLayout || measureHeroLayout(ctx, draft, width, heroHeight);
+  if (!paint) return;
+
+  ctx.save();
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = PALETTE.white;
+  ctx.font = `700 ${layout.titleSize}px Georgia`;
+
+  layout.titleLines.forEach((line, index) => {
+    const baseline = heroY + layout.topPadding + layout.titleSize + index * layout.titleStep;
+    ctx.fillText(line, x, baseline);
+  });
+
+  const ruleY = heroY + layout.ruleY;
+  ctx.fillStyle = PALETTE.gold;
+  ctx.fillRect(x, ruleY, Math.min(170, width * 0.25), 4);
+
+  const metaColor = onImage ? "rgba(255,255,255,0.90)" : "rgba(255,255,255,0.86)";
+  ctx.fillStyle = metaColor;
+  ctx.font = "600 22px Arial";
+  ctx.fillText(
+    `TIER ${draft.tier} · ${draft.type || (draft.kind === "environment" ? "AMBIENTE" : "ADVERSARIO")}`.toLocaleUpperCase("es-CL"),
+    x,
+    heroY + layout.metaFirstBaseline,
+  );
+  ctx.fillText(
+    `DIFICULTAD ${draft.difficulty}`.toLocaleUpperCase("es-CL"),
+    x,
+    heroY + layout.metaSecondBaseline,
+  );
+
+  const kindLabel = draft.kind === "environment" ? "AMBIENTE" : "ADVERSARIO";
+  ctx.font = "700 16px Arial";
+  const badgeW = ctx.measureText(kindLabel).width + 42;
+  const badgeX = x + width - badgeW;
+  const badgeY = heroY + heroHeight - layout.badgeBottomPadding - layout.badgeHeight;
+  pill(ctx, badgeX, badgeY, badgeW, layout.badgeHeight, PALETTE.gold, PALETTE.deep, kindLabel, 16);
+  ctx.restore();
 }
 
 function drawEnvironmentBody(ctx, draft, x, y, width, paint) {

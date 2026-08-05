@@ -1,6 +1,6 @@
 # Forja de Bloques para Daggerheart
 
-Versión 5: incorpora exportación completa o en modo jugador para PNG y PDF, manteniendo los temas y la compatibilidad de datos de versiones anteriores.
+Versión 6: mejora la composición automática de la cabecera para títulos largos. El título, tier, tipo y dificultad permanecen en la esquina superior izquierda, mientras que la etiqueta **AMBIENTE** o **ADVERSARIO** se ubica en la esquina inferior derecha.
 
 Aplicación web estática y serverless para diseñar bloques de **ambientes** y **adversarios** compatibles con Daggerheart. Está pensada para publicarse directamente en GitHub Pages (`github.io`) y no necesita backend, base de datos ni proceso de compilación.
 
@@ -26,6 +26,17 @@ Aplicación web estática y serverless para diseñar bloques de **ambientes** y 
 - Sin dependencias externas ni servicios de terceros.
 
 
+## Cabeceras adaptables y títulos largos
+
+La cabecera del bloque ahora se distribuye en dos zonas independientes:
+
+- **Esquina superior izquierda:** título, tier, tipo y dificultad.
+- **Esquina inferior derecha:** etiqueta `AMBIENTE` o `ADVERSARIO`.
+
+Los títulos pueden ocupar hasta tres líneas. El tamaño tipográfico se ajusta de forma gradual y, cuando la altura de imagen seleccionada no deja suficiente espacio, la cabecera aumenta automáticamente su altura mínima. Esto evita superposiciones tanto en la vista previa como en PNG, PDF y modo jugador.
+
+Cuando se utiliza una ilustración, se aplica una sombra localizada en la zona superior izquierda para conservar la legibilidad del texto sin oscurecer excesivamente el resto de la imagen.
+
 ## Exportación completa y modo jugador
 
 Los botones **PNG** y **PDF** despliegan dos opciones:
@@ -47,7 +58,7 @@ La preferencia se guarda localmente en el navegador y no se incluye en el JSON d
 
 ## Temas de los bloques
 
-Cada ambiente o adversario guarda su propio tema visual en la propiedad opcional `blockTheme`. La versión 4 incluye:
+Cada ambiente o adversario guarda su propio tema visual en la propiedad opcional `blockTheme`. Los temas disponibles son:
 
 - `bruma-menta`: tema predeterminado de azules grisáceos y verde menta.
 - `lavanda-rosa`: lavanda editorial y rosa empolvado.
@@ -60,9 +71,9 @@ El tema seleccionado se conserva en la vista previa, la biblioteca local y las e
 
 La dificultad sigue siendo un campo numérico. En el bloque generado ahora aparece inmediatamente debajo de `Tier X · Tipo`, usando el mismo estilo tipográfico. Se eliminó la tarjeta independiente de dificultad tanto en ambientes como en adversarios.
 
-## Compatibilidad con JSON v2, v3 y v4
+## Compatibilidad con JSON v2, v3, v4 y v5
 
-La estructura principal del bloque se mantiene. Los JSON de las versiones 2, 3 y 4 se pueden importar directamente.
+La estructura principal del bloque se mantiene. Los JSON de las versiones 2, 3, 4 y 5 se pueden importar directamente.
 
 - Si un archivo antiguo no contiene `blockTheme`, se utiliza automáticamente `bruma-menta`.
 - No se modificaron las estructuras de `features`, `ingredients`, `flavors` ni del rasgo culinario opcional.
@@ -107,13 +118,11 @@ Luego abre `http://localhost:8000`.
 ├── manifest.webmanifest
 ├── icon.svg
 ├── .nojekyll
-├── LICENSE
 ├── CHANGELOG.md
 ├── ejemplo_adversario_ingredientes.json
 ├── previews/
-│   ├── block_themes_v5.png
-│   ├── screenshot_v5_export_menu.png
-│   └── ejemplo_adversario_modo_jugador.png
+│   ├── statblock_v6_long_title_header.png
+│   └── statblock_v6_long_title_full.png
 └── README.md
 ```
 
