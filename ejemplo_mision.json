@@ -1,0 +1,48 @@
+{
+  "app": "Forja de Bloques Daggerheart",
+  "version": 7,
+  "block": {
+    "kind": "mission",
+    "blockTheme": "bruma-menta",
+    "title": "Misión introductoria",
+    "type": "Completa",
+    "summary": "Misión introductoria pensada para Sesión 0: presenta el tono, los misterios y las mecánicas principales de la campaña.",
+    "sections": [
+      {
+        "title": "GM Prep",
+        "blocks": [
+          {
+            "type": "text",
+            "text": "¿Qué deben aprender los personajes?"
+          },
+          {
+            "type": "list",
+            "listStyle": "bullet",
+            "items": [
+              "Introducir la historia.",
+              "Presentar personajes importantes.",
+              "Plantear los misterios centrales de esta historia."
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Beats",
+        "blocks": [
+          {
+            "type": "list",
+            "listStyle": "numbered",
+            "items": [
+              "Los jugadores conocen al personaje X.",
+              "Un monstruo comienza su ataque en un pueblo contiguo.",
+              "Los jugadores aprenden sobre las mecánicas de comida.",
+              "Un mensajero sobreviviente llega con información de un enemigo.",
+              "La escena termina con una decisión que abre la siguiente parte de la aventura."
+            ]
+          }
+        ]
+      }
+    ],
+    "currentId": null
+  }
+}

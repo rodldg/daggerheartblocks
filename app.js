@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = 6;
+const APP_VERSION = 7;
 const APP_THEME_KEY = "forja-daggerheart-app-theme-v1";
 const DEFAULT_BLOCK_THEME = "bruma-menta";
 const AUTOSAVE_KEY = "forja-daggerheart-autosave-v1";
@@ -77,6 +77,34 @@ const BLOCK_THEMES = {
       red: "#ad6f69", line: "#d1dee5", white: "#ffffff", mint: "#e8f1ed",
       mintStrong: "#85aa9a", bluePale: "#e8f1f7", blueStrong: "#7ca5b8",
       sandPale: "#f6eadc", coralPale: "#f7e2dd",
+    },
+  },
+  "ambar-aventura": {
+    label: "Ámbar de aventura",
+    description: "Amarillos y naranjos cálidos para intensidad media",
+    headerGradient: ["#6b4b27", "#a66a2f", "#d39a55"],
+    imageOverlay: ["rgba(71,47,24,0.08)", "rgba(89,53,22,0.20)", "rgba(55,35,19,0.94)"],
+    palette: {
+      background: "#eee2cf", paper: "#fffaf2", paperAlt: "#fbf0df", ink: "#473526",
+      muted: "#7b6754", deep: "#76502d", plum: "#9b6234", violet: "#d0a066",
+      violetDark: "#89572f", violetPale: "#f8ead7", gold: "#d8a24c", goldPale: "#fff1cf",
+      red: "#ad5e43", line: "#e2cfb4", white: "#ffffff", mint: "#f4e6c8",
+      mintStrong: "#c8893f", bluePale: "#f7e6c8", blueStrong: "#a96832",
+      sandPale: "#f8e8c7", coralPale: "#f8ded0",
+    },
+  },
+  "ascua-negra": {
+    label: "Ascua negra",
+    description: "Rojos profundos y carbón para intensidad alta",
+    headerGradient: ["#181719", "#3a2023", "#7d2b30"],
+    imageOverlay: ["rgba(17,15,17,0.10)", "rgba(35,16,19,0.30)", "rgba(18,14,16,0.96)"],
+    palette: {
+      background: "#31292b", paper: "#fbf6f5", paperAlt: "#f4e9e8", ink: "#35282a",
+      muted: "#796668", deep: "#51272b", plum: "#713238", violet: "#a94c53",
+      violetDark: "#612a30", violetPale: "#f2dfe0", gold: "#d4a18a", goldPale: "#f7e6dd",
+      red: "#a52f38", line: "#dbc7c7", white: "#ffffff", mint: "#eee2df",
+      mintStrong: "#8d3d42", bluePale: "#efe5e4", blueStrong: "#474247",
+      sandPale: "#f0e1d8", coralPale: "#f4dada",
     },
   },
 };
@@ -207,6 +235,47 @@ const EXAMPLES = {
     imagePositionY: 50,
     currentId: null,
   },
+  mission: {
+    kind: "mission",
+    blockTheme: DEFAULT_BLOCK_THEME,
+    title: "Misión introductoria",
+    type: "Completa",
+    summary: "Misión introductoria pensada para una Sesión 0: presenta el tono de la campaña, sus misterios y las mecánicas principales.",
+    sections: [
+      {
+        title: "GM Prep",
+        blocks: [
+          { type: "text", text: "¿Qué deben aprender los personajes?" },
+          {
+            type: "list",
+            listStyle: "bullet",
+            items: [
+              "Introducir la historia.",
+              "Presentar personajes importantes.",
+              "Plantear los misterios centrales de esta historia.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Beats",
+        blocks: [
+          {
+            type: "list",
+            listStyle: "numbered",
+            items: [
+              "Los jugadores conocen al personaje X.",
+              "Un monstruo comienza su ataque en un pueblo contiguo.",
+              "Los jugadores aprenden sobre las mecánicas de comida.",
+              "Un mensajero sobreviviente llega con información de un enemigo.",
+              "La escena termina con una decisión que abre la siguiente parte de la aventura.",
+            ],
+          },
+        ],
+      },
+    ],
+    currentId: null,
+  },
 };
 
 const EMPTY = {
@@ -228,6 +297,15 @@ const EMPTY = {
     experiences: [{ name: "", modifier: 2 }],
     ingredients: [],
     features: [{ name: "", type: "Pasiva", text: "", bullets: [] }],
+  },
+  mission: {
+    ...structuredClone(EXAMPLES.mission),
+    title: "Nueva misión",
+    type: "Completa",
+    summary: "",
+    sections: [
+      { title: "", blocks: [{ type: "text", text: "" }] },
+    ],
   },
 };
 
@@ -274,6 +352,7 @@ function defaultAppState() {
     drafts: {
       environment: structuredClone(EXAMPLES.environment),
       adversary: structuredClone(EXAMPLES.adversary),
+      mission: structuredClone(EXAMPLES.mission),
     },
   };
 }
@@ -296,20 +375,33 @@ function normalizeAppState() {
   if (!appState.drafts || typeof appState.drafts !== "object") appState.drafts = fallback.drafts;
   appState.drafts.environment = normalizeDraft(appState.drafts.environment, "environment");
   appState.drafts.adversary = normalizeDraft(appState.drafts.adversary, "adversary");
-  activeKind = appState.activeKind === "adversary" ? "adversary" : "environment";
+  appState.drafts.mission = normalizeDraft(appState.drafts.mission, "mission");
+  activeKind = ["environment", "adversary", "mission"].includes(appState.activeKind) ? appState.activeKind : "environment";
   appState.activeKind = activeKind;
 }
 
 function normalizeDraft(raw, kind) {
-  const base = structuredClone(EXAMPLES[kind]);
+  const safeKind = ["environment", "adversary", "mission"].includes(kind) ? kind : "environment";
+  const base = structuredClone(EXAMPLES[safeKind]);
   const value = raw && typeof raw === "object" ? raw : {};
-  const draft = { ...base, ...value, kind };
-  draft.title = stringValue(draft.title).slice(0, 80) || (kind === "environment" ? "Nuevo ambiente" : "Nuevo adversario");
+  const draft = { ...base, ...value, kind: safeKind };
+  draft.blockTheme = BLOCK_THEMES[draft.blockTheme] ? draft.blockTheme : DEFAULT_BLOCK_THEME;
+  draft.currentId = draft.currentId || null;
+
+  if (safeKind === "mission") {
+    draft.title = stringValue(draft.title).slice(0, 100) || "Nueva misión";
+    draft.type = ["Completa", "Acto", "Beat"].includes(stringValue(draft.type)) ? stringValue(draft.type) : "Completa";
+    draft.summary = stringValue(draft.summary ?? draft.description).slice(0, 600);
+    draft.sections = arrayValue(draft.sections).map((section) => normalizeMissionSection(section));
+    if (!draft.sections.length) draft.sections = [{ title: "", blocks: [{ type: "text", text: "" }] }];
+    return draft;
+  }
+
+  draft.title = stringValue(draft.title).slice(0, 80) || (safeKind === "environment" ? "Nuevo ambiente" : "Nuevo adversario");
   draft.type = stringValue(draft.type).slice(0, 60);
   draft.description = stringValue(draft.description).slice(0, 200);
   draft.tier = numericValue(draft.tier, 1, 1, 4);
   draft.difficulty = numericValue(draft.difficulty, 10, 0, 99);
-  draft.blockTheme = BLOCK_THEMES[draft.blockTheme] ? draft.blockTheme : DEFAULT_BLOCK_THEME;
   draft.imageDataUrl = stringValue(draft.imageDataUrl);
   draft.imageName = stringValue(draft.imageName);
   draft.imageHeight = numericValue(draft.imageHeight, 340, 220, 520);
@@ -324,7 +416,7 @@ function normalizeDraft(raw, kind) {
   }));
   if (!draft.features.length) draft.features = [{ name: "", type: "Pasiva", text: "", bullets: [] }];
 
-  if (kind === "environment") {
+  if (safeKind === "environment") {
     draft.impulses = arrayValue(draft.impulses).map((item) => stringValue(item).slice(0, 100)).slice(0, MAX_IMPULSES);
     if (!draft.impulses.length) draft.impulses = [""];
     draft.potentialAdversaries = arrayValue(draft.potentialAdversaries).map((item) => stringValue(item).slice(0, 180)).slice(0, MAX_POTENTIAL_ADVERSARIES);
@@ -355,6 +447,27 @@ function normalizeDraft(raw, kind) {
   return draft;
 }
 
+function normalizeMissionSection(raw) {
+  const section = raw && typeof raw === "object" ? raw : {};
+  const blocks = arrayValue(section.blocks).map((block) => normalizeMissionBlock(block));
+  return {
+    title: stringValue(section.title).slice(0, 120),
+    blocks: blocks.length ? blocks : [{ type: "text", text: "" }],
+  };
+}
+
+function normalizeMissionBlock(raw) {
+  const block = raw && typeof raw === "object" ? raw : {};
+  const type = block.type === "list" ? "list" : "text";
+  if (type === "list") {
+    return {
+      type: "list",
+      listStyle: block.listStyle === "numbered" ? "numbered" : "bullet",
+      items: arrayValue(block.items).map((item) => stringValue(item).slice(0, 1000)).filter((item) => item.trim()),
+    };
+  }
+  return { type: "text", text: stringValue(block.text).slice(0, 6000) };
+}
 function normalizeIngredient(raw) {
   const item = raw && typeof raw === "object" ? raw : {};
   const seen = new Set();
@@ -555,13 +668,20 @@ function handleGlobalAction(action, exportMode = "complete") {
 function renderEditor() {
   const draft = currentDraft();
   syncBlockThemeControl();
-  editorForm.innerHTML = [
-    renderBasicSection(draft),
-    renderImageSection(draft),
-    activeKind === "environment" ? renderEnvironmentSection(draft) : renderAdversarySection(draft),
-    activeKind === "adversary" ? renderIngredientsSection(draft) : "",
-    renderFeaturesSection(draft),
-  ].join("");
+  if (activeKind === "mission") {
+    editorForm.innerHTML = [
+      renderMissionBasicSection(draft),
+      renderMissionSectionsEditor(draft),
+    ].join("");
+  } else {
+    editorForm.innerHTML = [
+      renderBasicSection(draft),
+      renderImageSection(draft),
+      activeKind === "environment" ? renderEnvironmentSection(draft) : renderAdversarySection(draft),
+      activeKind === "adversary" ? renderIngredientsSection(draft) : "",
+      renderFeaturesSection(draft),
+    ].join("");
+  }
   updateAllCounters();
 }
 
@@ -578,6 +698,92 @@ function renderBasicSection(draft) {
         ${textareaField("Descripción corta", "description", draft.description, 200, true, "Máximo 200 caracteres.")}
       </div>
     </section>`;
+}
+
+function renderMissionBasicSection(draft) {
+  return `
+    <section class="form-section">
+      <h2 class="section-title">Información de la misión</h2>
+      <p class="section-help">El encabezado identifica si este bloque representa una misión completa, un acto o un beat narrativo.</p>
+      <div class="form-grid" style="margin-top:14px">
+        ${textField("Título", "title", draft.title, 100, true, "Misión introductoria")}
+        <div class="field">
+          <label for="mission-type">Tipo</label>
+          <select id="mission-type" data-field="type">
+            ${["Completa", "Acto", "Beat"].map((type) => `<option value="${type}" ${draft.type === type ? "selected" : ""}>${type}</option>`).join("")}
+          </select>
+        </div>
+        ${textareaField("Resumen", "summary", draft.summary, 600, true, "Opcional. Una síntesis breve del propósito o alcance de este bloque.")}
+      </div>
+    </section>`;
+}
+
+function renderMissionSectionsEditor(draft) {
+  return `
+    <section class="form-section mission-builder-section">
+      <h2 class="section-title">Secciones de planificación</h2>
+      <p class="section-help">Agrega tantas secciones como necesites. Cada sección puede contener bloques de texto y listas punteadas o numeradas.</p>
+      <div class="mission-section-list" style="margin-top:14px">
+        ${draft.sections.map((section, sectionIndex) => missionSectionEditor(section, sectionIndex, draft.sections.length)).join("")}
+      </div>
+      <button class="add-button" type="button" data-action="add-mission-section">＋ Agregar sección</button>
+    </section>`;
+}
+
+function missionSectionEditor(section, sectionIndex, totalSections) {
+  return `
+    <article class="mission-section-editor" data-mission-section data-section-index="${sectionIndex}">
+      <div class="mission-section-header">
+        <div class="mission-section-identity">
+          <span class="mission-section-index">SECCIÓN ${String(sectionIndex + 1).padStart(2, "0")}</span>
+        </div>
+        <div class="feature-order-actions" aria-label="Orden de la sección ${sectionIndex + 1}">
+          <button class="feature-order-button" type="button" data-action="move-mission-section-up" data-section-index="${sectionIndex}" title="Mover sección hacia arriba" ${sectionIndex === 0 ? "disabled" : ""}>↑</button>
+          <button class="feature-order-button" type="button" data-action="move-mission-section-down" data-section-index="${sectionIndex}" title="Mover sección hacia abajo" ${sectionIndex === totalSections - 1 ? "disabled" : ""}>↓</button>
+          <button class="remove-button" type="button" data-action="remove-mission-section" data-section-index="${sectionIndex}" aria-label="Quitar sección" ${totalSections === 1 ? "disabled" : ""}>×</button>
+        </div>
+      </div>
+      ${textField("Título de la sección", `sections.${sectionIndex}.title`, section.title, 120, true, "Opcional · GM Prep, Beats, Clímax…")}
+      <div class="mission-content-list">
+        ${section.blocks.map((block, blockIndex) => missionContentBlockEditor(block, sectionIndex, blockIndex, section.blocks.length)).join("")}
+      </div>
+      <div class="mission-add-blocks">
+        <button type="button" class="mission-add-block" data-action="add-mission-text-block" data-section-index="${sectionIndex}">＋ Texto</button>
+        <button type="button" class="mission-add-block" data-action="add-mission-list-block" data-section-index="${sectionIndex}">＋ Lista</button>
+      </div>
+    </article>`;
+}
+
+function missionContentBlockEditor(block, sectionIndex, blockIndex, totalBlocks) {
+  const isList = block.type === "list";
+  const blockPath = `sections.${sectionIndex}.blocks.${blockIndex}`;
+  return `
+    <article class="mission-content-editor" data-mission-block data-section-index="${sectionIndex}" data-block-index="${blockIndex}">
+      <div class="mission-content-toolbar">
+        <div class="mission-content-type">
+          <span>BLOQUE ${String(blockIndex + 1).padStart(2, "0")}</span>
+          <select data-field="${blockPath}.type" data-mission-block-type data-section-index="${sectionIndex}" data-block-index="${blockIndex}" aria-label="Tipo del bloque ${blockIndex + 1}">
+            <option value="text" ${!isList ? "selected" : ""}>Texto</option>
+            <option value="list" ${isList ? "selected" : ""}>Lista</option>
+          </select>
+        </div>
+        <div class="feature-order-actions">
+          <button class="feature-order-button" type="button" data-action="move-mission-block-up" data-section-index="${sectionIndex}" data-block-index="${blockIndex}" title="Mover bloque hacia arriba" ${blockIndex === 0 ? "disabled" : ""}>↑</button>
+          <button class="feature-order-button" type="button" data-action="move-mission-block-down" data-section-index="${sectionIndex}" data-block-index="${blockIndex}" title="Mover bloque hacia abajo" ${blockIndex === totalBlocks - 1 ? "disabled" : ""}>↓</button>
+          <button class="remove-button" type="button" data-action="remove-mission-block" data-section-index="${sectionIndex}" data-block-index="${blockIndex}" aria-label="Quitar bloque" ${totalBlocks === 1 ? "disabled" : ""}>×</button>
+        </div>
+      </div>
+      ${isList ? `
+        <div class="field mission-list-style-field">
+          <label>Estilo de lista</label>
+          <select data-field="${blockPath}.listStyle">
+            <option value="bullet" ${block.listStyle !== "numbered" ? "selected" : ""}>Punteada</option>
+            <option value="numbered" ${block.listStyle === "numbered" ? "selected" : ""}>Numerada</option>
+          </select>
+        </div>
+        ${textareaField("Elementos", `${blockPath}.items`, arrayValue(block.items).join("\n"), 12000, true, "Un elemento por línea.", true)}
+      ` : textareaField("Texto", `${blockPath}.text`, block.text || "", 6000, true, "Puedes usar párrafos y saltos de línea.")}
+    </article>`;
 }
 
 function renderImageSection(draft) {
@@ -820,15 +1026,73 @@ function handleEditorChange(event) {
     renderEditor();
     schedulePreview();
     queueAutosave();
+    return;
+  }
+  if (target.matches("[data-mission-block-type]")) {
+    const sectionIndex = Number(target.dataset.sectionIndex);
+    const blockIndex = Number(target.dataset.blockIndex);
+    const section = currentDraft().sections?.[sectionIndex];
+    const block = section?.blocks?.[blockIndex];
+    if (!block) return;
+    if (target.value === "list") {
+      const seedItems = arrayValue(block.items).length
+        ? arrayValue(block.items)
+        : stringValue(block.text).split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+      section.blocks[blockIndex] = { type: "list", listStyle: "bullet", items: seedItems };
+    } else {
+      const seedText = stringValue(block.text) || arrayValue(block.items).join("\n");
+      section.blocks[blockIndex] = { type: "text", text: seedText };
+    }
+    renderEditor();
+    schedulePreview();
+    queueAutosave();
   }
 }
-
 function handleEditorClick(event) {
   const button = event.target.closest("[data-action]");
   if (!button) return;
   const action = button.dataset.action;
   const index = Number(button.dataset.index);
   const draft = currentDraft();
+
+  if (activeKind === "mission") {
+    const sectionIndex = Number(button.dataset.sectionIndex);
+    const blockIndex = Number(button.dataset.blockIndex);
+    if (action === "add-mission-section") {
+      draft.sections.push({ title: "", blocks: [{ type: "text", text: "" }] });
+    } else if (action === "remove-mission-section") {
+      if (draft.sections.length <= 1 || !draft.sections[sectionIndex]) return;
+      draft.sections.splice(sectionIndex, 1);
+    } else if (action === "move-mission-section-up") {
+      if (!moveArrayItem(draft.sections, sectionIndex, sectionIndex - 1)) return;
+    } else if (action === "move-mission-section-down") {
+      if (!moveArrayItem(draft.sections, sectionIndex, sectionIndex + 1)) return;
+    } else if (action === "add-mission-text-block") {
+      const section = draft.sections[sectionIndex];
+      if (!section) return;
+      section.blocks.push({ type: "text", text: "" });
+    } else if (action === "add-mission-list-block") {
+      const section = draft.sections[sectionIndex];
+      if (!section) return;
+      section.blocks.push({ type: "list", listStyle: "bullet", items: [] });
+    } else if (action === "remove-mission-block") {
+      const section = draft.sections[sectionIndex];
+      if (!section || section.blocks.length <= 1 || !section.blocks[blockIndex]) return;
+      section.blocks.splice(blockIndex, 1);
+    } else if (action === "move-mission-block-up") {
+      const section = draft.sections[sectionIndex];
+      if (!section || !moveArrayItem(section.blocks, blockIndex, blockIndex - 1)) return;
+    } else if (action === "move-mission-block-down") {
+      const section = draft.sections[sectionIndex];
+      if (!section || !moveArrayItem(section.blocks, blockIndex, blockIndex + 1)) return;
+    } else return;
+
+    renderEditor();
+    schedulePreview();
+    queueAutosave();
+    return;
+  }
+
   if (action === "remove-image") {
     draft.imageDataUrl = "";
     draft.imageName = "";
@@ -882,6 +1146,14 @@ function handleEditorClick(event) {
   queueAutosave();
 }
 
+function moveArrayItem(array, fromIndex, toIndex) {
+  if (!Array.isArray(array)) return false;
+  if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) return false;
+  if (fromIndex < 0 || fromIndex >= array.length || toIndex < 0 || toIndex >= array.length || fromIndex === toIndex) return false;
+  const [item] = array.splice(fromIndex, 1);
+  array.splice(toIndex, 0, item);
+  return true;
+}
 function moveFeature(fromIndex, toIndex) {
   const features = currentDraft().features;
   if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) return false;
@@ -1057,8 +1329,8 @@ function saveAutosave() {
     console.warn(error);
     try {
       const lightweight = structuredClone(appState);
-      lightweight.drafts.environment.imageDataUrl = "";
-      lightweight.drafts.adversary.imageDataUrl = "";
+      if (lightweight.drafts.environment) lightweight.drafts.environment.imageDataUrl = "";
+      if (lightweight.drafts.adversary) lightweight.drafts.adversary.imageDataUrl = "";
       localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(lightweight));
       toast("Se guardó el texto, pero la imagen era demasiado grande para el almacenamiento local.", "error");
     } catch {}
@@ -1082,15 +1354,241 @@ function schedulePreview() {
 function renderStatblock(canvas, draft, pixelScale = 1, image = null, renderMode = "complete") {
   const scratch = document.createElement("canvas").getContext("2d");
   const height = Math.ceil(drawStatblock(scratch, draft, LOGICAL_WIDTH, false, image, null, renderMode));
-  canvas.width = Math.ceil(LOGICAL_WIDTH * pixelScale);
-  canvas.height = Math.ceil(height * pixelScale);
+  const dimensionLimit = 30000;
+  const pixelLimit = 85000000;
+  const safePixelScale = Math.max(0.25, Math.min(
+    pixelScale,
+    dimensionLimit / LOGICAL_WIDTH,
+    dimensionLimit / height,
+    Math.sqrt(pixelLimit / (LOGICAL_WIDTH * height)),
+  ));
+  canvas.width = Math.max(1, Math.ceil(LOGICAL_WIDTH * safePixelScale));
+  canvas.height = Math.max(1, Math.ceil(height * safePixelScale));
   const ctx = canvas.getContext("2d", { alpha: false });
-  ctx.scale(pixelScale, pixelScale);
+  ctx.scale(safePixelScale, safePixelScale);
   drawStatblock(ctx, draft, LOGICAL_WIDTH, true, image, height, renderMode);
-  return { width: LOGICAL_WIDTH, height };
+  return { width: LOGICAL_WIDTH, height, pixelScale: safePixelScale };
+}
+
+function drawMissionStatblock(ctx, draft, width, paint, measuredHeight = null, renderMode = "complete") {
+  activateBlockTheme(draft.blockTheme);
+  const outer = 24;
+  const cardX = outer;
+  const cardW = width - outer * 2;
+  const inner = 46;
+  const contentX = cardX + inner;
+  const contentW = cardW - inner * 2;
+  let y = outer;
+  const topY = y;
+  const layout = measureMissionHeader(ctx, draft, contentW);
+
+  if (paint) {
+    ctx.save();
+    ctx.fillStyle = PALETTE.background;
+    ctx.fillRect(0, 0, width, measuredHeight || 12000);
+    ctx.shadowColor = "rgba(28, 26, 34, 0.25)";
+    ctx.shadowBlur = 22;
+    ctx.shadowOffsetY = 10;
+    roundedRect(ctx, cardX, y, cardW, Math.max(200, (measuredHeight || 10000) - outer * 2), 8, PALETTE.paper);
+    ctx.restore();
+
+    const gradient = ctx.createLinearGradient(cardX, y, cardX + cardW, y + layout.height);
+    gradient.addColorStop(0, ACTIVE_BLOCK_THEME.headerGradient[0]);
+    gradient.addColorStop(0.58, ACTIVE_BLOCK_THEME.headerGradient[1]);
+    gradient.addColorStop(1, ACTIVE_BLOCK_THEME.headerGradient[2]);
+    roundedRect(ctx, cardX, y, cardW, layout.height, 8, gradient);
+    drawConstellation(ctx, cardX, y, cardW, layout.height);
+    drawMissionHeader(ctx, draft, contentX, y, contentW, layout);
+  }
+  y += layout.height;
+
+  if (paint) {
+    const accentGradient = ctx.createLinearGradient(cardX, y, cardX + cardW, y);
+    accentGradient.addColorStop(0, PALETTE.blueStrong);
+    accentGradient.addColorStop(0.55, PALETTE.mintStrong);
+    accentGradient.addColorStop(1, PALETTE.gold);
+    ctx.fillStyle = accentGradient;
+    ctx.fillRect(cardX, y, cardW, 7);
+  }
+  y += 39;
+
+  if (renderMode !== "player") {
+    y = drawMissionBody(ctx, draft, contentX, y, contentW, paint);
+    y += 12;
+    if (paint) {
+      drawFooterOrnament(ctx, contentX, y, contentW);
+      ctx.fillStyle = PALETTE.muted;
+      ctx.font = "500 15px Arial";
+      ctx.textAlign = "left";
+      ctx.fillText("PLANIFICACIÓN NO OFICIAL · COMPATIBLE CON DAGGERHEART", contentX, y + 38);
+      ctx.textAlign = "right";
+      ctx.fillText("FORJA DE BLOQUES", contentX + contentW, y + 38);
+    }
+    y += 70;
+  } else {
+    y += 4;
+  }
+
+  const finalHeight = y + outer;
+  if (paint) {
+    ctx.save();
+    ctx.strokeStyle = PALETTE.deep;
+    ctx.lineWidth = 3;
+    roundedStroke(ctx, cardX, topY, cardW, finalHeight - topY - outer, 8);
+    ctx.strokeStyle = PALETTE.blueStrong;
+    ctx.lineWidth = 1.5;
+    roundedStroke(ctx, cardX + 10, topY + 10, cardW - 20, finalHeight - topY - outer - 20, 5);
+    ctx.restore();
+  }
+  return finalHeight;
+}
+
+function measureMissionHeader(ctx, draft, width) {
+  const title = (draft.title || "Sin título").toLocaleUpperCase("es-CL");
+  const titleMaxWidth = Math.max(260, width - 12);
+  let titleSize = 60;
+  let titleLines = [];
+  while (titleSize >= 34) {
+    ctx.font = `700 ${titleSize}px Georgia`;
+    titleLines = wrapLines(ctx, title, titleMaxWidth);
+    if (titleLines.length <= 3) break;
+    titleSize -= 2;
+  }
+  if (titleLines.length > 3) titleLines = titleLines.slice(0, 3);
+
+  const topPadding = 34;
+  const kickerBaseline = topPadding + 18;
+  const titleTop = kickerBaseline + 28;
+  const titleStep = titleSize * 1.04;
+  const titleHeight = titleLines.length * titleStep;
+  const ruleY = titleTop + titleHeight + 15;
+  const summary = stringValue(draft.summary).trim();
+  const summaryTop = ruleY + 28;
+  const summaryWidth = width - 10;
+  const summaryHeight = summary ? textBlockHeight(ctx, summary, 23, summaryWidth, 1.4, "italic 23px Georgia") : 0;
+  const bottomPadding = 34;
+  const height = Math.ceil(Math.max(240, summary ? summaryTop + summaryHeight + bottomPadding : ruleY + 42));
+  return { title, titleSize, titleLines, kickerBaseline, titleTop, titleStep, ruleY, summary, summaryTop, summaryWidth, summaryHeight, height };
+}
+
+function drawMissionHeader(ctx, draft, x, y, width, layout) {
+  ctx.save();
+  ctx.textAlign = "left";
+  ctx.fillStyle = "rgba(255,255,255,0.84)";
+  ctx.font = "700 17px Arial";
+  ctx.fillText("MISIÓN", x, y + layout.kickerBaseline);
+
+  const typeLabel = stringValue(draft.type || "Completa").toLocaleUpperCase("es-CL");
+  ctx.font = "700 15px Arial";
+  const badgeW = ctx.measureText(typeLabel).width + 38;
+  pill(ctx, x + width - badgeW, y + layout.kickerBaseline - 24, badgeW, 34, PALETTE.gold, PALETTE.deep, typeLabel, 15);
+
+  ctx.fillStyle = PALETTE.white;
+  ctx.font = `700 ${layout.titleSize}px Georgia`;
+  layout.titleLines.forEach((line, index) => {
+    ctx.fillText(line, x, y + layout.titleTop + layout.titleSize + index * layout.titleStep);
+  });
+
+  ctx.fillStyle = PALETTE.gold;
+  ctx.fillRect(x, y + layout.ruleY, Math.min(190, width * 0.27), 4);
+  if (layout.summary) {
+    ctx.fillStyle = "rgba(255,255,255,0.72)";
+    ctx.font = "700 14px Arial";
+    ctx.fillText("RESUMEN", x, y + layout.summaryTop - 7);
+    drawWrappedText(ctx, layout.summary, x, y + layout.summaryTop + 3, layout.summaryWidth, 23, "rgba(255,255,255,0.94)", 1.4, "italic 23px Georgia");
+  }
+  ctx.restore();
+}
+
+function drawMissionBody(ctx, draft, x, y, width, paint) {
+  const sections = arrayValue(draft.sections);
+  sections.forEach((section, sectionIndex) => {
+    const title = stringValue(section.title).trim();
+    if (title) {
+      y = drawSectionLabel(ctx, title.toLocaleUpperCase("es-CL"), x, y, width, paint);
+      y += 24;
+    } else {
+      if (paint) {
+        ctx.fillStyle = PALETTE.muted;
+        ctx.font = "700 14px Arial";
+        ctx.fillText(`SECCIÓN ${String(sectionIndex + 1).padStart(2, "0")}`, x + 8, y + 18);
+        ctx.fillStyle = PALETTE.line;
+        ctx.fillRect(x + 102, y + 13, width - 102, 2);
+      }
+      y += 38;
+    }
+
+    const blocks = arrayValue(section.blocks);
+    let drewBlock = false;
+    blocks.forEach((block, blockIndex) => {
+      if (block.type === "list") {
+        const items = arrayValue(block.items).map((item) => stringValue(item).trim()).filter(Boolean);
+        if (!items.length) return;
+        y = drawMissionListBlock(ctx, block, items, x, y, width, paint, blockIndex);
+        drewBlock = true;
+      } else {
+        const text = stringValue(block.text).trim();
+        if (!text) return;
+        y = drawMissionTextBlock(ctx, text, x, y, width, paint, blockIndex);
+        drewBlock = true;
+      }
+    });
+
+    if (!drewBlock) y += 4;
+    y += 30;
+  });
+  return y;
+}
+
+function drawMissionTextBlock(ctx, text, x, y, width, paint, index) {
+  const bodyH = textBlockHeight(ctx, text, 22, width - 58, 1.48, "500 22px Arial");
+  const cardH = bodyH + 46;
+  if (paint) {
+    roundedRect(ctx, x, y, width, cardH, 15, index % 2 === 0 ? PALETTE.paper : PALETTE.paperAlt);
+    ctx.strokeStyle = PALETTE.line;
+    ctx.lineWidth = 1.4;
+    roundedStroke(ctx, x, y, width, cardH, 15);
+    ctx.fillStyle = PALETTE.blueStrong;
+    ctx.fillRect(x, y, 7, cardH);
+    drawWrappedText(ctx, text, x + 29, y + 19, width - 58, 22, PALETTE.ink, 1.48, "500 22px Arial");
+  }
+  return y + cardH + 15;
+}
+
+function drawMissionListBlock(ctx, block, items, x, y, width, paint, index) {
+  const numbered = block.listStyle === "numbered";
+  let contentH = 0;
+  items.forEach((item) => {
+    contentH += textBlockHeight(ctx, item, 20, width - 102, 1.42, "500 20px Arial") + 13;
+  });
+  const cardH = contentH + 38;
+  if (paint) {
+    roundedRect(ctx, x, y, width, cardH, 15, index % 2 === 0 ? PALETTE.mint : PALETTE.bluePale);
+    ctx.strokeStyle = PALETTE.line;
+    ctx.lineWidth = 1.4;
+    roundedStroke(ctx, x, y, width, cardH, 15);
+    ctx.fillStyle = PALETTE.mintStrong;
+    ctx.fillRect(x, y, 7, cardH);
+    let ty = y + 19;
+    items.forEach((item, itemIndex) => {
+      if (numbered) {
+        const numberText = String(itemIndex + 1);
+        ctx.font = "700 15px Arial";
+        const numberW = Math.max(30, ctx.measureText(numberText).width + 18);
+        pill(ctx, x + 24, ty + 1, numberW, 29, PALETTE.goldPale, PALETTE.deep, numberText, 15);
+        const bottom = drawWrappedText(ctx, item, x + 24 + numberW + 14, ty, width - numberW - 76, 20, PALETTE.ink, 1.42, "500 20px Arial");
+        ty = bottom + 13;
+      } else {
+        drawDiamond(ctx, x + 38, ty + 13, 6, PALETTE.mintStrong);
+        ty = drawWrappedText(ctx, item, x + 58, ty, width - 86, 20, PALETTE.ink, 1.42, "500 20px Arial") + 13;
+      }
+    });
+  }
+  return y + cardH + 15;
 }
 
 function drawStatblock(ctx, draft, width, paint, image, measuredHeight = null, renderMode = "complete") {
+  if (draft.kind === "mission") return drawMissionStatblock(ctx, draft, width, paint, measuredHeight, renderMode);
   activateBlockTheme(draft.blockTheme);
   const outer = 24;
   const cardX = outer;
@@ -1726,7 +2224,7 @@ async function exportPng(exportMode = "complete") {
     toast(mode === "player" ? "Preparando PNG en modo jugador…" : "Preparando PNG completo…");
     const canvas = await renderExportCanvas(mode);
     const blob = await canvasToBlob(canvas, "image/png");
-    const kind = activeKind === "environment" ? "ambiente" : "adversario";
+    const kind = kindSlug(activeKind);
     const suffix = mode === "player" ? `${kind}_modo_jugador` : kind;
     downloadBlob(blob, `${safeFilename(currentDraft().title)}_${suffix}.png`);
     toast(mode === "player" ? "PNG para jugadores descargado." : "PNG completo descargado.", "success");
@@ -1746,7 +2244,7 @@ async function exportPdf(exportMode = "complete") {
     const pageWidth = 595.28;
     const pageHeight = pageWidth * canvas.height / canvas.width;
     const pdf = buildSingleImagePdf(jpegBytes, canvas.width, canvas.height, pageWidth, pageHeight);
-    const kind = activeKind === "environment" ? "ambiente" : "adversario";
+    const kind = kindSlug(activeKind);
     const suffix = mode === "player" ? `${kind}_modo_jugador` : kind;
     downloadBlob(new Blob([pdf], { type: "application/pdf" }), `${safeFilename(currentDraft().title)}_${suffix}.pdf`);
     toast(mode === "player" ? "PDF para jugadores descargado." : "PDF completo descargado.", "success");
@@ -1808,7 +2306,7 @@ async function importJsonFile() {
   try {
     const parsed = JSON.parse(await file.text());
     const raw = parsed.block || parsed;
-    const kind = raw.kind === "adversary" ? "adversary" : raw.kind === "environment" ? "environment" : null;
+    const kind = ["environment", "adversary", "mission"].includes(raw.kind) ? raw.kind : null;
     if (!kind) throw new Error("El archivo no identifica el tipo de bloque.");
     activeKind = kind;
     appState.activeKind = kind;
@@ -1857,7 +2355,7 @@ function renderLibrary() {
   }
   libraryList.innerHTML = library.map((item) => `
     <article class="library-item">
-      <div><h3>${escapeHtml(item.title || "Sin título")}</h3><p>${item.kind === "environment" ? "Ambiente" : "Adversario"} · ${formatDate(item.updatedAt)}</p></div>
+      <div><h3>${escapeHtml(item.title || "Sin título")}</h3><p>${kindLabelEs(item.kind)} · ${formatDate(item.updatedAt)}</p></div>
       <div class="library-actions">
         <button type="button" data-library-action="load" data-id="${escapeAttr(item.id)}">Abrir</button>
         <button type="button" class="delete" data-library-action="delete" data-id="${escapeAttr(item.id)}">Eliminar</button>
@@ -1883,7 +2381,7 @@ function handleLibraryClick(event) {
   if (index < 0) return;
   if (button.dataset.libraryAction === "load") {
     const record = library[index];
-    activeKind = record.kind === "adversary" ? "adversary" : "environment";
+    activeKind = ["environment", "adversary", "mission"].includes(record.kind) ? record.kind : "environment";
     appState.activeKind = activeKind;
     appState.drafts[activeKind] = normalizeDraft(record.data, activeKind);
     appState.drafts[activeKind].currentId = record.id;
@@ -1901,6 +2399,18 @@ function handleLibraryClick(event) {
       toast("Bloque eliminado.", "success");
     });
   }
+}
+
+function kindLabelEs(kind) {
+  if (kind === "mission") return "Misión";
+  if (kind === "adversary") return "Adversario";
+  return "Ambiente";
+}
+
+function kindSlug(kind) {
+  if (kind === "mission") return "mision";
+  if (kind === "adversary") return "adversario";
+  return "ambiente";
 }
 
 function recordTitle(record) { return record?.title || "Sin título"; }

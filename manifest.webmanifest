@@ -1,7 +1,7 @@
 {
   "name": "Forja de Bloques para Daggerheart",
   "short_name": "Forja de Bloques",
-  "description": "Creador local de bloques de ambientes y adversarios compatibles con Daggerheart.",
+  "description": "Creador local de bloques de ambientes, adversarios y misiones compatibles con Daggerheart.",
   "lang": "es-CL",
   "start_url": "./",
   "scope": "./",

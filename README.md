@@ -1,105 +1,155 @@
 # Forja de Bloques para Daggerheart
 
-Versión 6: mejora la composición automática de la cabecera para títulos largos. El título, tier, tipo y dificultad permanecen en la esquina superior izquierda, mientras que la etiqueta **AMBIENTE** o **ADVERSARIO** se ubica en la esquina inferior derecha.
+Versión 7. Aplicación web estática y serverless para crear bloques de **ambientes**, **adversarios** y **misiones** compatibles con Daggerheart. Está diseñada para publicarse directamente en GitHub Pages y no requiere backend, base de datos ni proceso de compilación.
 
-Aplicación web estática y serverless para diseñar bloques de **ambientes** y **adversarios** compatibles con Daggerheart. Está pensada para publicarse directamente en GitHub Pages (`github.io`) y no necesita backend, base de datos ni proceso de compilación.
+## Tipos de bloque
 
-## Funciones principales
+### Ambiente
 
-- Editor visual para ambientes y adversarios.
-- Vista previa en tiempo real mediante Canvas.
-- Imagen superior opcional con controles de altura, zoom y punto focal.
-- Descripción corta de hasta 200 caracteres.
-- Hasta 20 impulsos o tácticas, con 100 caracteres por entrada.
-- Reordenamiento de rasgos mediante arrastre o botones de flecha.
-- Asa de arrastre de seis puntos, legible y sin símbolos comprimidos.
-- Contadores de caracteres situados debajo de los campos, sin superponerse al texto.
-- Hasta 10 ingredientes por adversario, cada uno con 1 a 3 sabores y potencia de 1 a 3.
-- Dados de sabor: Dulce d4, Salado d6, Amargo d8, Ácido d10, Umami d12 y Raro d20.
-- Rasgo culinario opcional por ingrediente.
-- Exportación local a PNG y PDF en dos modalidades: bloque completo o modo jugador.
-- El modo jugador contiene únicamente título, tier, tipo, dificultad, imagen opcional y descripción corta.
-- Exportación e importación de JSON sin cambios en la estructura de datos.
-- Importación de JSON y biblioteca local mediante `localStorage`.
-- PWA básica con funcionamiento offline después de la primera carga.
-- Diseño responsive para escritorio, tablet y teléfono.
-- Sin dependencias externas ni servicios de terceros.
+Incluye título, tier, tipo, dificultad, descripción corta, imagen opcional, impulsos, adversarios potenciales y rasgos reordenables.
 
+### Adversario
 
-## Cabeceras adaptables y títulos largos
+Incluye título, tier, tipo, dificultad, descripción corta, imagen opcional, impulsos y tácticas, estadísticas, ataque, experiencias, ingredientes y rasgos reordenables.
 
-La cabecera del bloque ahora se distribuye en dos zonas independientes:
+Los ingredientes mantienen el sistema existente: máximo 10 por adversario, de 1 a 3 sabores por ingrediente, potencia de 1 a 3 y rasgo culinario opcional. Los dados de sabor son Dulce d4, Salado d6, Amargo d8, Ácido d10, Umami d12 y Raro d20.
 
-- **Esquina superior izquierda:** título, tier, tipo y dificultad.
-- **Esquina inferior derecha:** etiqueta `AMBIENTE` o `ADVERSARIO`.
+### Misión
 
-Los títulos pueden ocupar hasta tres líneas. El tamaño tipográfico se ajusta de forma gradual y, cuando la altura de imagen seleccionada no deja suficiente espacio, la cabecera aumenta automáticamente su altura mínima. Esto evita superposiciones tanto en la vista previa como en PNG, PDF y modo jugador.
+Pensado para planificar una misión completa o una parte de una historia mayor. El encabezado contiene:
 
-Cuando se utiliza una ilustración, se aplica una sombra localizada en la zona superior izquierda para conservar la legibilidad del texto sin oscurecer excesivamente el resto de la imagen.
+- **Título**.
+- **Tipo**: `Completa`, `Acto` o `Beat`.
+- **Resumen opcional**.
 
-## Exportación completa y modo jugador
+El cuerpo está compuesto por secciones editables. Cada sección tiene un título opcional y puede contener tantos bloques como sea necesario de dos tipos:
 
-Los botones **PNG** y **PDF** despliegan dos opciones:
+- **Texto**: párrafos libres y saltos de línea.
+- **Lista**: lista `Punteada` o `Numerada`, con un elemento por línea.
 
-- **Bloque completo**: incluye cabecera, descripción, perfil, estadísticas, ingredientes y rasgos según corresponda.
-- **Modo jugador**: incluye solamente el título, tier, tipo, dificultad, imagen opcional y descripción corta. No muestra el perfil, estadísticas, impulsos, adversarios potenciales, ingredientes, experiencias, ataques ni rasgos.
+Las secciones y sus bloques pueden reordenarse con botones `↑` y `↓`. Siempre se conserva al menos una sección y un bloque dentro de ella.
 
-La exportación en modo jugador agrega el sufijo `_modo_jugador` al nombre del archivo. La vista previa del editor continúa mostrando siempre el bloque completo, por lo que no altera el borrador ni el JSON.
+Ejemplo de estructura:
 
-## Temas de la aplicación
+```text
+Misión introductoria
+Completa
+Misión introductoria pensada para Sesión 0.
 
-La interfaz posee una apariencia independiente del bloque generado. El selector **Apariencia** permite usar:
+GM Prep
+¿Qué deben aprender los personajes?
+• Introducir la historia
+• Presentar personajes
+• Plantear los misterios centrales
 
-- **Sistema**: opción predeterminada; sigue el tema claro u oscuro del sistema operativo.
-- **Claro**.
-- **Oscuro**.
+Beats
+1. Los jugadores conocen al personaje X.
+2. Un monstruo comienza su ataque.
+3. Los jugadores aprenden las mecánicas de comida.
+```
 
-La preferencia se guarda localmente en el navegador y no se incluye en el JSON del bloque.
+## Temas de bloques
 
-## Temas de los bloques
+Todos los tipos de bloque, incluida Misión, comparten el mismo sistema de temas:
 
-Cada ambiente o adversario guarda su propio tema visual en la propiedad opcional `blockTheme`. Los temas disponibles son:
+- `bruma-menta` — **predeterminado**. Azules grisáceos y verde menta.
+- `lavanda-rosa` — Lavanda editorial y rosa empolvado.
+- `pergamino-salvia` — Marfil cálido, salvia y dorado suave.
+- `cielo-coral` — Celeste limpio con acentos coral.
+- `ambar-aventura` — **intensidad media**. Amarillos, ámbar y naranjos cálidos.
+- `ascua-negra` — **intensidad alta**. Rojos profundos, carbón y negro.
 
-- `bruma-menta`: tema predeterminado de azules grisáceos y verde menta.
-- `lavanda-rosa`: lavanda editorial y rosa empolvado.
-- `pergamino-salvia`: marfil cálido, salvia y dorado suave.
-- `cielo-coral`: celeste limpio con acentos coral.
+El tema se guarda en la propiedad opcional `blockTheme` y se aplica a la vista previa y a las exportaciones PNG/PDF.
 
-El tema seleccionado se conserva en la vista previa, la biblioteca local y las exportaciones JSON, PNG y PDF.
+## Apariencia de la aplicación
 
-## Cambios en la dificultad
+La interfaz de la aplicación es independiente del tema del bloque generado. El selector **Apariencia** admite:
 
-La dificultad sigue siendo un campo numérico. En el bloque generado ahora aparece inmediatamente debajo de `Tier X · Tipo`, usando el mismo estilo tipográfico. Se eliminó la tarjeta independiente de dificultad tanto en ambientes como en adversarios.
+- `Sistema` — opción predeterminada, sigue el sistema operativo.
+- `Claro`.
+- `Oscuro`.
 
-## Compatibilidad con JSON v2, v3, v4 y v5
+## Exportaciones
 
-La estructura principal del bloque se mantiene. Los JSON de las versiones 2, 3, 4 y 5 se pueden importar directamente.
+PNG y PDF mantienen dos modalidades:
 
-- Si un archivo antiguo no contiene `blockTheme`, se utiliza automáticamente `bruma-menta`.
-- No se modificaron las estructuras de `features`, `ingredients`, `flavors` ni del rasgo culinario opcional.
-- La nueva propiedad `blockTheme` es opcional y no impide que se recuperen datos antiguos.
+- **Bloque completo**: exporta todo el contenido disponible.
+- **Modo jugador**: para ambientes y adversarios conserva título, tier, tipo, dificultad, imagen opcional y resumen. Para misiones conserva únicamente el encabezado de misión: título, tipo y resumen opcional.
+
+También se puede exportar e importar JSON. El modo de exportación no modifica el borrador ni su JSON.
+
+## Compatibilidad con JSON antiguos
+
+La versión 7 mantiene la compatibilidad de lectura con los JSON de las versiones 2, 3, 4, 5 y 6:
+
+- `environment` y `adversary` conservan sus nombres y estructuras principales.
+- `features`, `ingredients`, `flavors` y los rasgos culinarios no cambian.
+- Si `blockTheme` no existe, se utiliza `bruma-menta`.
+- La versión 7 agrega un tercer valor posible de `kind`: `mission`.
+- Los archivos antiguos no necesitan migración manual.
+
+## Ejemplo JSON de una misión
+
+```json
+{
+  "kind": "mission",
+  "blockTheme": "bruma-menta",
+  "title": "Misión introductoria",
+  "type": "Completa",
+  "summary": "Misión introductoria pensada para Sesión 0.",
+  "sections": [
+    {
+      "title": "GM Prep",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "¿Qué deben aprender los personajes?"
+        },
+        {
+          "type": "list",
+          "listStyle": "bullet",
+          "items": [
+            "Introducir la historia.",
+            "Presentar personajes."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Beats",
+      "blocks": [
+        {
+          "type": "list",
+          "listStyle": "numbered",
+          "items": [
+            "Los jugadores conocen al personaje X.",
+            "Un monstruo comienza su ataque."
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
 
 ## Publicar en GitHub Pages
 
-1. Crea un repositorio nuevo en GitHub.
+1. Crea un repositorio en GitHub.
 2. Copia todos los archivos de esta carpeta a la raíz del repositorio.
-3. Haz commit y push a la rama `main`.
+3. Haz commit y push a `main`.
 4. Abre **Settings → Pages**.
-5. En **Build and deployment**, selecciona **Deploy from a branch**.
-6. Elige la rama `main` y la carpeta `/ (root)`.
-7. Guarda.
+5. Selecciona **Deploy from a branch**.
+6. Selecciona `main` y `/ (root)`.
 
-La dirección pública normalmente será:
+La aplicación usa rutas relativas, por lo que funciona en repositorios de proyecto del tipo:
 
 ```text
 https://TU_USUARIO.github.io/NOMBRE_DEL_REPOSITORIO/
 ```
 
-Todos los recursos usan rutas relativas, por lo que no es necesario modificar el código para repositorios de proyecto.
-
 ## Desarrollo local
 
-Para probar el service worker y el modo offline, ejecuta un servidor local dentro de la carpeta:
+Para probar la PWA y el service worker:
 
 ```bash
 python -m http.server 8000
@@ -107,7 +157,7 @@ python -m http.server 8000
 
 Luego abre `http://localhost:8000`.
 
-## Estructura
+## Estructura principal
 
 ```text
 .
@@ -120,37 +170,14 @@ Luego abre `http://localhost:8000`.
 ├── .nojekyll
 ├── CHANGELOG.md
 ├── ejemplo_adversario_ingredientes.json
-├── previews/
-│   ├── statblock_v6_long_title_header.png
-│   └── statblock_v6_long_title_full.png
+├── ejemplo_mision.json
 └── README.md
-```
-
-## Estructura de ingredientes en JSON
-
-```json
-{
-  "ingredients": [
-    {
-      "name": "Lengua de dragón",
-      "flavors": [
-        { "flavor": "Ácido", "potency": 1 },
-        { "flavor": "Umami", "potency": 2 },
-        { "flavor": "Raro", "potency": 1 }
-      ],
-      "feature": {
-        "name": "Última gota",
-        "text": "Descripción opcional del rasgo culinario."
-      }
-    }
-  ]
-}
 ```
 
 ## Privacidad
 
-La aplicación procesa imágenes, textos, PNG, PDF y JSON dentro del navegador. No realiza peticiones a un servidor para almacenar contenido. La biblioteca y las preferencias visuales se conservan únicamente en el almacenamiento local del navegador.
+Todo se procesa dentro del navegador. Las imágenes, textos, biblioteca local, PNG, PDF y JSON no se envían a un servidor.
 
 ## Aviso
 
-Proyecto fan-made y no oficial. No está afiliado, patrocinado ni respaldado por Darrington Press. No se incluyen logotipos, ilustraciones ni recursos propietarios oficiales. Verifica los términos de la licencia comunitaria correspondiente antes de distribuir material compatible con Daggerheart.
+Proyecto fan-made y no oficial. No está afiliado, patrocinado ni respaldado por Darrington Press. No se incluyen logotipos, ilustraciones ni recursos propietarios oficiales.

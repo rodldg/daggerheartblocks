@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#171923">
-  <meta name="description" content="Creador local y serverless de bloques de adversarios y ambientes compatibles con Daggerheart, con exportación completa y modo jugador.">
+  <meta name="description" content="Creador local y serverless de bloques de adversarios, ambientes y misiones compatibles con Daggerheart, con exportación PNG, PDF y JSON.">
   <title>Forja de Bloques | Daggerheart</title>
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="manifest" href="./manifest.webmanifest">
@@ -66,11 +66,11 @@
           <div class="export-dropdown-menu" role="menu" aria-label="Exportar PNG" hidden>
             <button type="button" role="menuitem" data-global-action="export-png" data-export-mode="complete">
               <span class="export-option-icon" aria-hidden="true">▤</span>
-              <span><strong>Bloque completo</strong><small>Incluye perfil, ingredientes y rasgos</small></span>
+              <span><strong>Bloque completo</strong><small>Incluye todo el contenido del bloque</small></span>
             </button>
             <button type="button" role="menuitem" data-global-action="export-png" data-export-mode="player">
               <span class="export-option-icon" aria-hidden="true">◫</span>
-              <span><strong>Modo jugador</strong><small>Sólo cabecera, imagen y resumen</small></span>
+              <span><strong>Modo jugador</strong><small>Sólo la información pública de cabecera</small></span>
             </button>
           </div>
         </div>
@@ -81,11 +81,11 @@
           <div class="export-dropdown-menu" role="menu" aria-label="Exportar PDF" hidden>
             <button type="button" role="menuitem" data-global-action="export-pdf" data-export-mode="complete">
               <span class="export-option-icon" aria-hidden="true">▤</span>
-              <span><strong>Bloque completo</strong><small>Incluye perfil, ingredientes y rasgos</small></span>
+              <span><strong>Bloque completo</strong><small>Incluye todo el contenido del bloque</small></span>
             </button>
             <button type="button" role="menuitem" data-global-action="export-pdf" data-export-mode="player">
               <span class="export-option-icon" aria-hidden="true">◫</span>
-              <span><strong>Modo jugador</strong><small>Sólo cabecera, imagen y resumen</small></span>
+              <span><strong>Modo jugador</strong><small>Sólo la información pública de cabecera</small></span>
             </button>
           </div>
         </div>
@@ -100,6 +100,7 @@
             <div class="kind-switch" role="tablist" aria-label="Tipo de bloque">
               <button type="button" role="tab" data-kind="environment">Ambiente</button>
               <button type="button" role="tab" data-kind="adversary">Adversario</button>
+              <button type="button" role="tab" data-kind="mission">Misión</button>
             </div>
           </div>
           <button class="icon-button" type="button" data-global-action="load-example" title="Cargar ejemplo" aria-label="Cargar ejemplo">✦</button>
@@ -122,6 +123,8 @@
                 <option value="lavanda-rosa">Lavanda y rosa</option>
                 <option value="pergamino-salvia">Pergamino y salvia</option>
                 <option value="cielo-coral">Cielo y coral</option>
+                <option value="ambar-aventura">Ámbar de aventura · intensidad media</option>
+                <option value="ascua-negra">Ascua negra · intensidad alta</option>
               </select>
             </label>
             <label class="resolution-control">

@@ -1,5 +1,22 @@
 # Historial de cambios
 
+## Versión 7 — Bloques de misión e intensidad visual
+
+- Añade el nuevo tipo de bloque **Misión**.
+- Una misión puede representar una misión `Completa`, un `Acto` o un `Beat`.
+- El encabezado de misión contiene título, tipo y resumen opcional.
+- El cuerpo de una misión admite un número abierto de secciones.
+- Cada sección puede tener título opcional y cualquier cantidad de bloques de contenido.
+- Se agregan bloques de **Texto** y **Lista**.
+- Las listas pueden ser `Punteadas` o `Numeradas`.
+- Secciones y bloques internos pueden reordenarse con botones `↑` y `↓`.
+- PNG y PDF funcionan también para misiones; el modo jugador exporta sólo el encabezado de la misión.
+- Se añaden los temas `ambar-aventura` para intensidad media y `ascua-negra` para intensidad alta.
+- Los seis temas visuales quedan disponibles en ambientes, adversarios y misiones.
+- Se mantiene la importación de JSON de las versiones 2 a 6 sin migración manual.
+- La caché PWA cambia a `forja-bloques-v7`.
+- La vista previa reduce automáticamente la escala interna si una misión extremadamente extensa supera los límites habituales de Canvas.
+
 ## Versión 6
 
 - Reorganiza la cabecera de los bloques para evitar colisiones con títulos extensos.
