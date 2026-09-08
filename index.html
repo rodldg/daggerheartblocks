@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#171923">
-  <meta name="description" content="Creador local y serverless de bloques de adversarios, ambientes y misiones compatibles con Daggerheart, con exportación PNG, PDF y JSON.">
+  <meta name="description" content="Creador serverless de bloques de Daggerheart con biblioteca SRD, generador de encuentros, misiones y exportación PNG, PDF y JSON.">
   <title>Forja de Bloques | Daggerheart</title>
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="manifest" href="./manifest.webmanifest">
@@ -39,9 +39,13 @@
         <button class="tool-button" type="button" data-global-action="save" title="Guardar localmente en este navegador">
           <span aria-hidden="true">◇</span><span>Guardar</span>
         </button>
-        <button class="tool-button" type="button" data-global-action="library" title="Abrir biblioteca local">
+        <button class="tool-button" type="button" data-global-action="library" title="Abrir biblioteca local y contenido base del SRD">
           <span aria-hidden="true">▤</span><span>Biblioteca</span>
         </button>
+        <button class="tool-button" type="button" data-global-action="encounter" title="Generador de encuentros balanceados">
+          <span aria-hidden="true">⚔</span><span>Encuentros</span>
+        </button>
+        <span class="autosave-indicator" id="autosaveStatus" aria-live="polite">Autoguardado activo</span>
         <span class="toolbar-separator" aria-hidden="true"></span>
         <label class="appearance-control" title="Tema de la aplicación">
           <span aria-hidden="true">◐</span>
@@ -152,22 +156,127 @@
 
     <footer class="site-footer">
       <p>Herramienta fan-made y no oficial. No está afiliada, patrocinada ni respaldada por Darrington Press.</p>
-      <p>La interfaz y el bloque exportado usan sistemas de temas independientes.</p>
+      <p>Biblioteca base derivada del Daggerheart SRD 1.0 suministrado · revisa la Community Gaming License antes de redistribuir contenido SRD.</p>
     </footer>
   </div>
 
   <dialog id="libraryDialog" class="library-dialog">
     <div class="dialog-header">
       <div>
-        <p class="eyebrow">ALMACENAMIENTO LOCAL</p>
-        <h2>Tu biblioteca</h2>
+        <p class="eyebrow">BIBLIOTECA</p>
+        <h2>Bloques guardados y SRD base</h2>
       </div>
       <button class="icon-button" type="button" data-dialog-action="close" aria-label="Cerrar">×</button>
     </div>
+
+    <div class="library-tabs" role="tablist" aria-label="Origen de la biblioteca">
+      <button type="button" role="tab" aria-selected="true" data-library-tab="local">Mis bloques</button>
+      <button type="button" role="tab" aria-selected="false" data-library-tab="srd">SRD base</button>
+    </div>
+
+    <div class="library-filters" data-library-filters hidden>
+      <label>
+        <span>Buscar</span>
+        <input type="search" id="srdSearch" placeholder="Nombre, rol, tipo…">
+      </label>
+      <label>
+        <span>Tipo</span>
+        <select id="srdKindFilter">
+          <option value="all">Adversarios y ambientes</option>
+          <option value="adversary">Adversarios</option>
+          <option value="environment">Ambientes</option>
+        </select>
+      </label>
+      <label>
+        <span>Tier</span>
+        <select id="srdTierFilter">
+          <option value="all">Todos</option>
+          <option value="1">Tier 1</option>
+          <option value="2">Tier 2</option>
+          <option value="3">Tier 3</option>
+          <option value="4">Tier 4</option>
+        </select>
+      </label>
+      <label>
+        <span>Rol / tipo</span>
+        <select id="srdRoleFilter">
+          <option value="all">Todos</option>
+        </select>
+      </label>
+    </div>
+
     <div id="libraryList" class="library-list"></div>
     <div class="dialog-footer">
-      <p>Los elementos se guardan únicamente en este navegador.</p>
+      <p id="libraryFooterText">Tus bloques se guardan únicamente en este navegador.</p>
       <button class="secondary-button danger" type="button" data-dialog-action="clear">Vaciar biblioteca</button>
+    </div>
+  </dialog>
+
+  <dialog id="encounterDialog" class="encounter-dialog">
+    <div class="dialog-header">
+      <div>
+        <p class="eyebrow">SRD · PUNTOS DE BATALLA</p>
+        <h2>Generador de encuentros</h2>
+      </div>
+      <button class="icon-button" type="button" data-encounter-action="close" aria-label="Cerrar">×</button>
+    </div>
+
+    <div class="encounter-layout">
+      <section class="encounter-setup">
+        <div class="encounter-controls-grid">
+          <label>
+            <span>Personajes en combate</span>
+            <input id="encounterPartySize" type="number" min="1" max="10" step="1" value="4">
+          </label>
+          <label>
+            <span>Tier del grupo</span>
+            <select id="encounterTier">
+              <option value="1">Tier 1</option>
+              <option value="2">Tier 2</option>
+              <option value="3">Tier 3</option>
+              <option value="4">Tier 4</option>
+            </select>
+          </label>
+          <label>
+            <span>Duración / intensidad</span>
+            <select id="encounterIntensity">
+              <option value="-1">Más fácil o corto (−1 PB)</option>
+              <option value="0" selected>Estándar</option>
+              <option value="2">Más difícil o largo (+2 PB)</option>
+            </select>
+          </label>
+          <label class="encounter-check">
+            <input id="encounterDamageBoost" type="checkbox">
+            <span>Adversarios con +1d4 (o +2) al daño (−2 PB)</span>
+          </label>
+        </div>
+
+        <div class="encounter-budget" id="encounterBudget"></div>
+
+        <div class="encounter-actions">
+          <button class="primary-button" type="button" data-encounter-action="generate">Generar propuesta</button>
+          <button class="secondary-button" type="button" data-encounter-action="clear">Limpiar</button>
+        </div>
+
+        <div class="encounter-selected" id="encounterSelected"></div>
+      </section>
+
+      <aside class="encounter-catalog">
+        <div class="encounter-catalog-heading">
+          <div>
+            <h3>Adversarios SRD</h3>
+            <p>Agrega adversarios del tier del grupo o de un tier inferior.</p>
+          </div>
+          <input id="encounterSearch" type="search" placeholder="Buscar adversario…">
+        </div>
+        <div class="encounter-role-filter" id="encounterRoleFilter"></div>
+        <div class="encounter-catalog-list" id="encounterCatalog"></div>
+      </aside>
+    </div>
+
+    <div class="dialog-footer">
+      <p>Regla del SRD: presupuesto base = (3 × PJ) + 2, ajustado por composición, tier e intensidad.</p>
+      <button class="secondary-button" type="button" data-encounter-action="copy">Copiar resumen</button>
     </div>
   </dialog>
 
@@ -183,6 +292,7 @@
   <input id="jsonFileInput" type="file" accept="application/json,.json" hidden>
   <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
 
+  <script src="./srd-data.js"></script>
   <script src="./app.js" defer></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = 7;
+const APP_VERSION = 8;
 const APP_THEME_KEY = "forja-daggerheart-app-theme-v1";
 const DEFAULT_BLOCK_THEME = "bruma-menta";
 const AUTOSAVE_KEY = "forja-daggerheart-autosave-v1";
@@ -21,6 +21,18 @@ const FLAVORS = [
   { name: "Umami", die: "d12" },
   { name: "Raro", die: "d20" },
 ];
+
+const SRD_LIBRARY = window.SRD_LIBRARY || { meta: {}, adversaries: [], environments: [] };
+const ENCOUNTER_ROLE_COSTS = Object.freeze({
+  Minion: 1, Social: 1, Support: 1, Horde: 2, Ranged: 2, Skulk: 2, Standard: 2,
+  Leader: 3, Bruiser: 4, Solo: 5,
+});
+const ENCOUNTER_HEAVY_ROLES = new Set(["Bruiser", "Horde", "Leader", "Solo"]);
+const ADVERSARY_ROLE_LABELS = Object.freeze({
+  Minion: "Esbirro", Social: "Social", Support: "Apoyo", Horde: "Horda", Ranged: "A distancia",
+  Skulk: "Acechador", Standard: "Estándar", Leader: "Líder", Bruiser: "Bruto", Solo: "Solitario",
+});
+const ENVIRONMENT_TYPE_LABELS = Object.freeze({ Exploration: "Exploración", Event: "Evento", Social: "Social", Traversal: "Travesía" });
 
 const BLOCK_THEMES = {
   "bruma-menta": {
@@ -315,7 +327,18 @@ let renderToken = 0;
 let imageCache = { src: null, image: null };
 let pendingConfirm = null;
 let autosaveTimer = null;
+let libraryAutosaveTimer = null;
+let pendingLibraryAutosaveKind = null;
 let draggedFeatureIndex = null;
+let activeLibraryTab = "local";
+let encounterState = {
+  partySize: 4,
+  tier: 1,
+  intensity: 0,
+  damageBoost: false,
+  roleFilter: "all",
+  selected: {},
+};
 
 const editorForm = document.getElementById("editorForm");
 const appThemeSelect = document.getElementById("appThemeSelect");
@@ -330,6 +353,22 @@ const confirmDialog = document.getElementById("confirmDialog");
 const confirmTitle = document.getElementById("confirmTitle");
 const confirmMessage = document.getElementById("confirmMessage");
 const toastRegion = document.getElementById("toastRegion");
+const autosaveStatus = document.getElementById("autosaveStatus");
+const libraryFooterText = document.getElementById("libraryFooterText");
+const srdSearch = document.getElementById("srdSearch");
+const srdKindFilter = document.getElementById("srdKindFilter");
+const srdTierFilter = document.getElementById("srdTierFilter");
+const srdRoleFilter = document.getElementById("srdRoleFilter");
+const encounterDialog = document.getElementById("encounterDialog");
+const encounterPartySize = document.getElementById("encounterPartySize");
+const encounterTier = document.getElementById("encounterTier");
+const encounterIntensity = document.getElementById("encounterIntensity");
+const encounterDamageBoost = document.getElementById("encounterDamageBoost");
+const encounterBudget = document.getElementById("encounterBudget");
+const encounterSelected = document.getElementById("encounterSelected");
+const encounterSearch = document.getElementById("encounterSearch");
+const encounterRoleFilter = document.getElementById("encounterRoleFilter");
+const encounterCatalog = document.getElementById("encounterCatalog");
 
 init();
 
@@ -411,7 +450,7 @@ function normalizeDraft(raw, kind) {
   draft.features = arrayValue(draft.features).slice(0, MAX_FEATURES).map((feature) => ({
     name: stringValue(feature?.name).slice(0, 90),
     type: stringValue(feature?.type).slice(0, 30) || "Pasiva",
-    text: stringValue(feature?.text).slice(0, 1600),
+    text: stringValue(feature?.text).slice(0, 5000),
     bullets: arrayValue(feature?.bullets).map((item) => stringValue(item).slice(0, 240)).filter(Boolean).slice(0, 12),
   }));
   if (!draft.features.length) draft.features = [{ name: "", type: "Pasiva", text: "", bullets: [] }];
@@ -419,7 +458,7 @@ function normalizeDraft(raw, kind) {
   if (safeKind === "environment") {
     draft.impulses = arrayValue(draft.impulses).map((item) => stringValue(item).slice(0, 100)).slice(0, MAX_IMPULSES);
     if (!draft.impulses.length) draft.impulses = [""];
-    draft.potentialAdversaries = arrayValue(draft.potentialAdversaries).map((item) => stringValue(item).slice(0, 180)).slice(0, MAX_POTENTIAL_ADVERSARIES);
+    draft.potentialAdversaries = arrayValue(draft.potentialAdversaries).map((item) => stringValue(item).slice(0, 500)).slice(0, MAX_POTENTIAL_ADVERSARIES);
     if (!draft.potentialAdversaries.length) draft.potentialAdversaries = [""];
   } else {
     draft.motives = arrayValue(draft.motives).map((item) => stringValue(item).slice(0, 100)).slice(0, MAX_IMPULSES);
@@ -577,6 +616,7 @@ function bindGlobalEvents() {
     currentDraft().blockTheme = themeId;
     schedulePreview();
     queueAutosave();
+    queueLibraryAutosave();
   });
 
   editorForm.addEventListener("input", handleEditorInput);
@@ -590,8 +630,21 @@ function bindGlobalEvents() {
 
   jsonFileInput.addEventListener("change", importJsonFile);
   libraryDialog.addEventListener("click", handleLibraryClick);
+  [srdSearch, srdKindFilter, srdTierFilter, srdRoleFilter].forEach((control) => {
+    control?.addEventListener("input", () => activeLibraryTab === "srd" && renderSrdLibrary());
+    control?.addEventListener("change", () => activeLibraryTab === "srd" && renderSrdLibrary());
+  });
+  encounterDialog?.addEventListener("click", handleEncounterClick);
+  [encounterPartySize, encounterTier, encounterIntensity, encounterDamageBoost].forEach((control) => {
+    control?.addEventListener("input", syncEncounterControls);
+    control?.addEventListener("change", syncEncounterControls);
+  });
+  encounterSearch?.addEventListener("input", renderEncounterCatalog);
   confirmDialog.addEventListener("click", handleConfirmClick);
-  window.addEventListener("beforeunload", saveAutosave);
+  window.addEventListener("beforeunload", () => {
+    saveAutosave();
+    flushLibraryAutosave();
+  });
 }
 
 function toggleExportMenu(toggleButton) {
@@ -648,7 +701,14 @@ function handleGlobalAction(action, exportMode = "complete") {
       });
       break;
     case "save": saveToLibrary(); break;
-    case "library": renderLibrary(); libraryDialog.showModal(); break;
+    case "library":
+      activeLibraryTab = "local";
+      renderLibrary();
+      libraryDialog.showModal();
+      break;
+    case "encounter":
+      openEncounterGenerator();
+      break;
     case "load-example":
       openConfirm("Cargar el ejemplo", "El contenido del borrador actual será reemplazado por un ejemplo completo.", () => {
         appState.drafts[activeKind] = structuredClone(EXAMPLES[activeKind]);
@@ -695,7 +755,8 @@ function renderBasicSection(draft) {
         ${textField("Tipo", "type", draft.type, 60, true, activeKind === "environment" ? "Exploración, Social, Viaje…" : "Solitario, Bruto, Horda…")}
         ${numberField("Tier", "tier", draft.tier, 1, 4, 1)}
         ${numberField("Dificultad", "difficulty", draft.difficulty, 0, 99, 1)}
-        ${textareaField("Descripción corta", "description", draft.description, 200, true, "Máximo 200 caracteres.")}
+        ${draft.srdDifficultyText ? `<div class="field full srd-special-note"><strong>Nota SRD:</strong> ${escapeHtml(draft.srdDifficultyText)}. Ajusta el valor numérico si quieres una versión personalizada del bloque.</div>` : ""}
+        ${textareaField("Descripción corta", "description", draft.description, 200, true, "Máximo 200 caracteres. Puedes usar **texto** para negrita.")}
       </div>
     </section>`;
 }
@@ -822,7 +883,7 @@ function renderEnvironmentSection(draft) {
       <h2 class="section-title">Adversarios potenciales</h2>
       <p class="section-help">Agrupa amenazas sugeridas por familia, facción o función.</p>
       <div class="inline-list" style="margin-top:14px">
-        ${draft.potentialAdversaries.map((value, index) => listTextRow("potentialAdversaries", index, value, 180, "Adversario potencial")).join("")}
+        ${draft.potentialAdversaries.map((value, index) => listTextRow("potentialAdversaries", index, value, 500, "Adversario potencial")).join("")}
       </div>
       <button class="add-button" type="button" data-action="add-potential-adversary" ${draft.potentialAdversaries.length >= MAX_POTENTIAL_ADVERSARIES ? "disabled" : ""}>＋ Agregar grupo · ${draft.potentialAdversaries.length}/${MAX_POTENTIAL_ADVERSARIES}</button>
     </section>`;
@@ -846,6 +907,7 @@ function renderAdversarySection(draft) {
         ${numberField("PV", "hp", draft.hp, 0, 99, 1)}
         ${numberField("Estrés", "stress", draft.stress, 0, 99, 1)}
         ${numberField("Mod. ATQ", "attackModifier", draft.attackModifier, -20, 20, 1)}
+        ${draft.srdAttackModifierText ? `<div class="field full srd-special-note"><strong>Nota SRD:</strong> el modificador de ataque original es ${escapeHtml(draft.srdAttackModifierText)} y no puede representarse en el campo numérico. Ajusta el valor sólo si quieres una adaptación.</div>` : ""}
       </div>
     </section>
     <section class="form-section">
@@ -942,7 +1004,7 @@ function renderFeaturesSection(draft) {
   return `
     <section class="form-section">
       <h2 class="section-title">Rasgos</h2>
-      <p class="section-help">Cada rasgo puede incluir un texto principal y detalles opcionales. Reordénalos arrastrando el asa o usando las flechas.</p>
+      <p class="section-help">Cada rasgo puede incluir un texto principal y detalles opcionales. Reordénalos arrastrando el asa o usando las flechas. Usa <strong>**texto**</strong> o el botón <strong>B</strong> para negrita.</p>
       <div class="feature-list" data-feature-list>
         ${draft.features.map((feature, index) => featureEditor(feature, index, draft.features.length)).join("")}
       </div>
@@ -972,7 +1034,7 @@ function featureEditor(feature, index, total) {
             ${["Pasiva", "Acción", "Reacción", "Acción de Miedo", "Especial"].map((type) => `<option value="${type}" ${type === feature.type ? "selected" : ""}>${type}</option>`).join("")}
           </select>
         </div>
-        ${textareaField("Descripción", `features.${index}.text`, feature.text, 1600, true)}
+        ${textareaField("Descripción", `features.${index}.text`, feature.text, 5000, true)}
         ${textareaField("Detalles o viñetas", `features.${index}.bullets`, feature.bullets.join("\n"), 2900, true, "Una viñeta por línea.", true)}
       </div>
     </article>`;
@@ -980,7 +1042,7 @@ function featureEditor(feature, index, total) {
 
 function textField(label, path, value, maxLength, full = false, placeholder = "") {
   const id = idFromPath(path);
-  return `<div class="field ${full ? "full" : ""}"><label for="${id}">${label}</label><div class="input-wrap"><input id="${id}" type="text" maxlength="${maxLength}" data-field="${path}" value="${escapeAttr(value)}" placeholder="${escapeAttr(placeholder)}"><span class="char-counter" data-counter>${stringValue(value).length} / ${maxLength}</span></div></div>`;
+  return `<div class="field ${full ? "full" : ""}"><label for="${id}">${label}</label><div class="input-wrap"><input id="${id}" type="text" maxlength="${maxLength}" data-field="${path}" value="${escapeAttr(value)}" placeholder="${escapeAttr(placeholder)}"><div class="input-meta input-meta-counter-only"><span class="char-counter" data-counter>${stringValue(value).length} / ${maxLength}</span></div></div></div>`;
 }
 
 function numberField(label, path, value, min, max, step) {
@@ -991,7 +1053,7 @@ function numberField(label, path, value, min, max, step) {
 function textareaField(label, path, value, maxLength, full = false, hint = "", linesMode = false) {
   const id = idFromPath(path);
   const attribute = linesMode ? "data-lines-field" : "data-field";
-  return `<div class="field ${full ? "full" : ""}"><label for="${id}">${label}${hint ? ` <span class="field-hint">${hint}</span>` : ""}</label><div class="input-wrap"><textarea id="${id}" maxlength="${maxLength}" ${attribute}="${path}">${escapeHtml(value)}</textarea><span class="char-counter" data-counter>${stringValue(value).length} / ${maxLength}</span></div></div>`;
+  return `<div class="field ${full ? "full" : ""}"><label for="${id}">${label}${hint ? ` <span class="field-hint">${hint}</span>` : ""}</label><div class="input-wrap"><textarea id="${id}" maxlength="${maxLength}" ${attribute}="${path}">${escapeHtml(value)}</textarea><div class="input-meta"><button class="format-bold-button" type="button" data-format-bold="${id}" title="Aplicar negrita" aria-label="Aplicar negrita"><strong>B</strong></button><span class="char-counter" data-counter>${stringValue(value).length} / ${maxLength}</span></div></div></div>`;
 }
 
 function rangeField(label, path, value, min, max, step, suffix) {
@@ -1000,7 +1062,28 @@ function rangeField(label, path, value, min, max, step, suffix) {
 }
 
 function listTextRow(path, index, value, maxLength, label) {
-  return `<div class="list-row"><div class="input-wrap"><input type="text" maxlength="${maxLength}" data-field="${path}.${index}" value="${escapeAttr(value)}" aria-label="${label} ${index + 1}" placeholder="${label}"><span class="char-counter" data-counter>${stringValue(value).length} / ${maxLength}</span></div><button class="remove-button" type="button" data-action="remove-${path}" data-index="${index}" aria-label="Quitar ${label.toLowerCase()}">×</button></div>`;
+  const id = idFromPath(`${path}.${index}`);
+  return `<div class="list-row"><div class="input-wrap"><input id="${id}" type="text" maxlength="${maxLength}" data-field="${path}.${index}" value="${escapeAttr(value)}" aria-label="${label} ${index + 1}" placeholder="${label}"><div class="input-meta"><button class="format-bold-button" type="button" data-format-bold="${id}" title="Aplicar negrita" aria-label="Aplicar negrita"><strong>B</strong></button><span class="char-counter" data-counter>${stringValue(value).length} / ${maxLength}</span></div></div><button class="remove-button" type="button" data-action="remove-${path}" data-index="${index}" aria-label="Quitar ${label.toLowerCase()}">×</button></div>`;
+}
+
+function applyBoldFormatting(fieldId) {
+  const field = document.getElementById(fieldId);
+  if (!field || !(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)) return;
+  const start = Number.isInteger(field.selectionStart) ? field.selectionStart : field.value.length;
+  const end = Number.isInteger(field.selectionEnd) ? field.selectionEnd : start;
+  const selected = field.value.slice(start, end);
+  const insertion = selected ? `**${selected}**` : "****";
+  const nextValue = `${field.value.slice(0, start)}${insertion}${field.value.slice(end)}`;
+  if (field.maxLength > -1 && nextValue.length > field.maxLength) {
+    toast("No hay espacio suficiente para agregar las marcas de negrita.", "error");
+    return;
+  }
+  field.value = nextValue;
+  field.dispatchEvent(new Event("input", { bubbles: true }));
+  field.focus();
+  const caretStart = start + 2;
+  const caretEnd = selected ? end + 2 : caretStart;
+  field.setSelectionRange(caretStart, caretEnd);
 }
 
 function handleEditorInput(event) {
@@ -1014,6 +1097,7 @@ function handleEditorInput(event) {
   updateRangeValue(target);
   schedulePreview();
   queueAutosave();
+  queueLibraryAutosave();
 }
 
 function handleEditorChange(event) {
@@ -1026,6 +1110,7 @@ function handleEditorChange(event) {
     renderEditor();
     schedulePreview();
     queueAutosave();
+    queueLibraryAutosave();
     return;
   }
   if (target.matches("[data-mission-block-type]")) {
@@ -1046,9 +1131,16 @@ function handleEditorChange(event) {
     renderEditor();
     schedulePreview();
     queueAutosave();
+    queueLibraryAutosave();
   }
 }
 function handleEditorClick(event) {
+  const boldButton = event.target.closest("[data-format-bold]");
+  if (boldButton) {
+    event.preventDefault();
+    applyBoldFormatting(boldButton.dataset.formatBold);
+    return;
+  }
   const button = event.target.closest("[data-action]");
   if (!button) return;
   const action = button.dataset.action;
@@ -1090,6 +1182,7 @@ function handleEditorClick(event) {
     renderEditor();
     schedulePreview();
     queueAutosave();
+    queueLibraryAutosave();
     return;
   }
 
@@ -1144,6 +1237,7 @@ function handleEditorClick(event) {
   renderEditor();
   schedulePreview();
   queueAutosave();
+  queueLibraryAutosave();
 }
 
 function moveArrayItem(array, fromIndex, toIndex) {
@@ -1226,6 +1320,7 @@ function handleDrop(event) {
       renderEditor();
       schedulePreview();
       queueAutosave();
+      queueLibraryAutosave();
       toast("Orden de rasgos actualizado.", "success");
     }
     return;
@@ -1260,6 +1355,7 @@ async function processImageFile(file) {
     renderEditor();
     schedulePreview();
     queueAutosave();
+    queueLibraryAutosave();
     toast("Imagen incorporada localmente.", "success");
   } catch (error) {
     console.error(error);
@@ -1301,7 +1397,7 @@ function setByPath(object, path, value) {
 function updateAllCounters() { editorForm.querySelectorAll("input[maxlength], textarea[maxlength]").forEach(updateCounter); }
 function updateCounter(target) {
   if (!target?.maxLength || target.maxLength < 0) return;
-  const counter = target.parentElement?.querySelector(":scope > [data-counter]");
+  const counter = target.closest?.(".input-wrap")?.querySelector("[data-counter]") || target.parentElement?.querySelector("[data-counter]");
   if (!counter) return;
   const length = target.value.length;
   counter.textContent = `${length} / ${target.maxLength}`;
@@ -2159,19 +2255,92 @@ function fitFontSize(ctx, text, maxWidth, start, min, weight, family) {
   return size;
 }
 
+function boldFontVariant(font) {
+  const value = stringValue(font).trim();
+  if (/\b(?:[1-9]00)\b/.test(value)) return value.replace(/\b(?:[1-9]00)\b/, "700");
+  if (/\bbold\b/i.test(value)) return value;
+  if (/^italic\b/i.test(value)) return value.replace(/^italic\b/i, "italic 700");
+  return `700 ${value}`;
+}
+
+function richTextTokens(paragraph) {
+  const tokens = [];
+  const source = stringValue(paragraph);
+  const matcher = /\*\*(.+?)\*\*/g;
+  let cursor = 0;
+  let match;
+  const pushSegment = (segment, bold) => {
+    const parts = segment.match(/\s+|[^\s]+/g) || [];
+    parts.forEach((part) => tokens.push({ text: /^\s+$/.test(part) ? " " : part, bold, space: /^\s+$/.test(part) }));
+  };
+  while ((match = matcher.exec(source))) {
+    if (match.index > cursor) pushSegment(source.slice(cursor, match.index), false);
+    pushSegment(match[1], true);
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < source.length) pushSegment(source.slice(cursor), false);
+  return tokens;
+}
+
+function wrapRichLines(ctx, value, maxWidth, font) {
+  const lines = [];
+  const boldFont = boldFontVariant(font);
+  for (const paragraph of stringValue(value).split(/\r?\n/)) {
+    if (!paragraph.trim()) { lines.push([]); continue; }
+    const tokens = richTextTokens(paragraph);
+    let line = [];
+    let lineWidth = 0;
+    for (const rawToken of tokens) {
+      const token = { ...rawToken };
+      if (token.space) {
+        if (!line.length || line.at(-1)?.space) continue;
+        ctx.font = font;
+        token.width = ctx.measureText(" ").width;
+        line.push(token);
+        lineWidth += token.width;
+        continue;
+      }
+      ctx.font = token.bold ? boldFont : font;
+      token.width = ctx.measureText(token.text).width;
+      if (line.length && lineWidth + token.width > maxWidth) {
+        while (line.at(-1)?.space) {
+          lineWidth -= line.at(-1).width || 0;
+          line.pop();
+        }
+        if (line.length) lines.push(line);
+        line = [];
+        lineWidth = 0;
+      }
+      line.push(token);
+      lineWidth += token.width;
+    }
+    while (line.at(-1)?.space) line.pop();
+    lines.push(line);
+  }
+  return lines.length ? lines : [[]];
+}
+
 function textBlockHeight(ctx, text, fontSize, maxWidth, lineHeight = 1.4, font = `500 ${fontSize}px Arial`) {
-  ctx.font = font;
-  const lines = wrapLines(ctx, text, maxWidth);
+  const lines = wrapRichLines(ctx, text, maxWidth, font);
   return Math.max(fontSize * lineHeight, lines.length * fontSize * lineHeight);
 }
 
 function drawWrappedText(ctx, text, x, y, maxWidth, fontSize, color, lineHeight = 1.4, font = `500 ${fontSize}px Arial`) {
   ctx.fillStyle = color;
-  ctx.font = font;
   ctx.textAlign = "left";
-  const lines = wrapLines(ctx, text, maxWidth);
+  const lines = wrapRichLines(ctx, text, maxWidth, font);
+  const boldFont = boldFontVariant(font);
   const step = fontSize * lineHeight;
-  lines.forEach((line, index) => ctx.fillText(line, x, y + fontSize + index * step));
+  lines.forEach((line, index) => {
+    let cursorX = x;
+    const baseline = y + fontSize + index * step;
+    line.forEach((token) => {
+      ctx.font = token.space ? font : (token.bold ? boldFont : font);
+      if (!token.space) ctx.fillText(token.text, cursorX, baseline);
+      cursorX += token.width ?? ctx.measureText(token.text).width;
+    });
+  });
+  ctx.font = font;
   return y + lines.length * step;
 }
 
@@ -2327,30 +2496,85 @@ function loadLibrary() {
 }
 function writeLibrary(items) { localStorage.setItem(LIBRARY_KEY, JSON.stringify(items)); }
 
-function saveToLibrary() {
-  const draft = currentDraft();
+function setAutosaveStatus(mode, message = "") {
+  if (!autosaveStatus) return;
+  autosaveStatus.dataset.state = mode;
+  autosaveStatus.textContent = message || (mode === "saving" ? "Guardando…" : mode === "error" ? "Error de autoguardado" : "Autoguardado");
+}
+
+function queueLibraryAutosave(kind = activeKind) {
+  pendingLibraryAutosaveKind = ["environment", "adversary", "mission"].includes(kind) ? kind : activeKind;
+  clearTimeout(libraryAutosaveTimer);
+  setAutosaveStatus("saving");
+  libraryAutosaveTimer = setTimeout(() => {
+    const queuedKind = pendingLibraryAutosaveKind;
+    pendingLibraryAutosaveKind = null;
+    libraryAutosaveTimer = null;
+    saveDraftToLibrary(queuedKind, { silent: true });
+  }, 900);
+}
+
+function flushLibraryAutosave() {
+  if (!libraryAutosaveTimer || !pendingLibraryAutosaveKind) return;
+  clearTimeout(libraryAutosaveTimer);
+  libraryAutosaveTimer = null;
+  const queuedKind = pendingLibraryAutosaveKind;
+  pendingLibraryAutosaveKind = null;
+  saveDraftToLibrary(queuedKind, { silent: true });
+}
+
+function saveDraftToLibrary(kind, { silent = false } = {}) {
+  const safeKind = ["environment", "adversary", "mission"].includes(kind) ? kind : activeKind;
+  const draft = appState.drafts[safeKind];
+  if (!draft) return false;
   const library = loadLibrary();
   const now = new Date().toISOString();
   let id = draft.currentId;
   if (!id) id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const record = { id, kind: activeKind, title: draft.title || "Sin título", updatedAt: now, data: { ...structuredClone(draft), currentId: id } };
+  const record = { id, kind: safeKind, title: draft.title || "Sin título", updatedAt: now, data: { ...structuredClone(draft), currentId: id } };
   const existing = library.findIndex((item) => item.id === id);
   if (existing >= 0) library[existing] = record; else library.unshift(record);
   try {
     writeLibrary(library);
     draft.currentId = id;
     queueAutosave();
-    toast(existing >= 0 ? "Bloque actualizado en la biblioteca." : "Bloque guardado en la biblioteca.", "success");
+    setAutosaveStatus("saved");
+    if (!silent) toast(existing >= 0 ? "Bloque actualizado en la biblioteca." : "Bloque guardado en la biblioteca.", "success");
+    if (libraryDialog?.open && activeLibraryTab === "local") renderLibrary();
+    return true;
   } catch (error) {
     console.error(error);
-    toast("No hay espacio suficiente en el almacenamiento local. Prueba exportando el JSON o usando una imagen más liviana.", "error");
+    setAutosaveStatus("error");
+    if (!silent) toast("No hay espacio suficiente en el almacenamiento local. Prueba exportando el JSON o usando una imagen más liviana.", "error");
+    return false;
   }
 }
 
+function saveToLibrary() {
+  flushLibraryAutosave();
+  saveDraftToLibrary(activeKind, { silent: false });
+}
+
+function librarySourceItems() {
+  return [...arrayValue(SRD_LIBRARY.adversaries), ...arrayValue(SRD_LIBRARY.environments)];
+}
+
 function renderLibrary() {
+  const tabs = libraryDialog.querySelectorAll("[data-library-tab]");
+  tabs.forEach((tab) => tab.setAttribute("aria-selected", tab.dataset.libraryTab === activeLibraryTab ? "true" : "false"));
+  const filters = libraryDialog.querySelector("[data-library-filters]");
+  const clearButton = libraryDialog.querySelector('[data-dialog-action="clear"]');
+  if (filters) filters.hidden = activeLibraryTab !== "srd";
+  if (clearButton) clearButton.hidden = activeLibraryTab === "srd";
+  if (activeLibraryTab === "srd") renderSrdLibrary();
+  else renderLocalLibrary();
+}
+
+function renderLocalLibrary() {
   const library = loadLibrary().sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  if (libraryFooterText) libraryFooterText.textContent = "Tus bloques se autoguardan únicamente en este navegador.";
   if (!library.length) {
-    libraryList.innerHTML = `<div class="library-empty"><p>No hay bloques guardados todavía.</p><p>Usa el botón <strong>Guardar</strong> para crear tu biblioteca local.</p></div>`;
+    libraryList.innerHTML = `<div class="library-empty"><p>No hay bloques guardados todavía.</p><p>Empieza a escribir: el bloque se guardará automáticamente al detenerte un momento.</p></div>`;
     return;
   }
   libraryList.innerHTML = library.map((item) => `
@@ -2363,7 +2587,96 @@ function renderLibrary() {
     </article>`).join("");
 }
 
+function populateSrdRoleFilter() {
+  if (!srdRoleFilter) return;
+  const kind = srdKindFilter?.value || "all";
+  const tier = srdTierFilter?.value || "all";
+  const current = srdRoleFilter.value;
+  const values = new Map();
+  librarySourceItems().forEach((item) => {
+    if (kind !== "all" && item.kind !== kind) return;
+    if (tier !== "all" && Number(item.tier) !== Number(tier)) return;
+    const raw = item.kind === "adversary" ? item.srdRole : item.srdEnvironmentType;
+    if (!raw) return;
+    const label = item.kind === "adversary" ? (ADVERSARY_ROLE_LABELS[raw] || raw) : (ENVIRONMENT_TYPE_LABELS[raw] || raw);
+    values.set(raw, label);
+  });
+  srdRoleFilter.innerHTML = `<option value="all">Todos</option>${[...values.entries()].sort((a,b)=>a[1].localeCompare(b[1], "es")).map(([value,label])=>`<option value="${escapeAttr(value)}">${escapeHtml(label)}</option>`).join("")}`;
+  srdRoleFilter.value = values.has(current) ? current : "all";
+}
+
+function renderSrdLibrary() {
+  populateSrdRoleFilter();
+  const query = stringValue(srdSearch?.value).trim().toLocaleLowerCase("es");
+  const kind = srdKindFilter?.value || "all";
+  const tier = srdTierFilter?.value || "all";
+  const role = srdRoleFilter?.value || "all";
+  const items = librarySourceItems().filter((item) => {
+    if (kind !== "all" && item.kind !== kind) return false;
+    if (tier !== "all" && Number(item.tier) !== Number(tier)) return false;
+    const rawRole = item.kind === "adversary" ? item.srdRole : item.srdEnvironmentType;
+    if (role !== "all" && rawRole !== role) return false;
+    if (!query) return true;
+    const haystack = [item.title, item.description, item.type, rawRole, ...(item.motives || []), ...(item.impulses || [])].join(" ").toLocaleLowerCase("es");
+    return haystack.includes(query);
+  }).sort((a,b) => Number(a.tier)-Number(b.tier) || String(a.title).localeCompare(String(b.title), "en"));
+
+  if (libraryFooterText) libraryFooterText.textContent = `${SRD_LIBRARY.adversaries.length} adversarios · ${SRD_LIBRARY.environments.length} ambientes · texto mecánico preservado desde Daggerheart SRD 1.0.`;
+  if (!items.length) {
+    libraryList.innerHTML = `<div class="library-empty"><p>No hay entradas SRD para estos filtros.</p></div>`;
+    return;
+  }
+  libraryList.innerHTML = items.map((item) => {
+    const rawRole = item.kind === "adversary" ? item.srdRole : item.srdEnvironmentType;
+    const roleLabel = item.kind === "adversary" ? (ADVERSARY_ROLE_LABELS[rawRole] || rawRole) : (ENVIRONMENT_TYPE_LABELS[rawRole] || rawRole);
+    const diff = item.srdDifficultyText ? `Dificultad especial` : `Dificultad ${item.difficulty}`;
+    return `<article class="library-item srd-library-item">
+      <div class="srd-library-copy">
+        <div class="srd-library-kicker"><span>${kindLabelEs(item.kind)}</span><span>Tier ${item.tier}</span><span>${escapeHtml(roleLabel || item.type || "")}</span></div>
+        <h3>${escapeHtml(item.title)}</h3>
+        <p class="srd-library-description">${escapeHtml(item.description || "")}</p>
+        <p class="srd-library-source">${diff} · SRD p. ${item.sourcePage}</p>
+      </div>
+      <div class="library-actions srd-library-actions">
+        ${item.kind === "adversary" ? `<button type="button" data-srd-encounter="${escapeAttr(item.id)}">＋ Encuentro</button>` : ""}
+        <button type="button" class="primary-inline" data-srd-load="${escapeAttr(item.id)}">Usar como base</button>
+      </div>
+    </article>`;
+  }).join("");
+}
+
+function findSrdItem(id) {
+  return librarySourceItems().find((item) => item.id === id) || null;
+}
+
+function loadSrdAsEditable(item) {
+  if (!item) return;
+  const kind = item.kind === "adversary" ? "adversary" : "environment";
+  activeKind = kind;
+  appState.activeKind = kind;
+  const copy = structuredClone(item);
+  copy.currentId = null;
+  appState.drafts[kind] = normalizeDraft(copy, kind);
+  // Preserve source-only informational fields that normalizeDraft intentionally leaves optional.
+  if (item.srdDifficultyText) appState.drafts[kind].srdDifficultyText = item.srdDifficultyText;
+  if (item.srdAttackModifierText) appState.drafts[kind].srdAttackModifierText = item.srdAttackModifierText;
+  appState.drafts[kind].source = item.source;
+  appState.drafts[kind].sourcePage = item.sourcePage;
+  renderKindSwitch();
+  renderEditor();
+  schedulePreview();
+  queueAutosave();
+  libraryDialog.close();
+  toast("Bloque SRD cargado como copia editable.", "success");
+}
+
 function handleLibraryClick(event) {
+  const tab = event.target.closest("[data-library-tab]");
+  if (tab) {
+    activeLibraryTab = tab.dataset.libraryTab === "srd" ? "srd" : "local";
+    renderLibrary();
+    return;
+  }
   const dialogAction = event.target.closest("[data-dialog-action]")?.dataset.dialogAction;
   if (dialogAction === "close") return libraryDialog.close();
   if (dialogAction === "clear") {
@@ -2372,6 +2685,22 @@ function handleLibraryClick(event) {
       renderLibrary();
       toast("Biblioteca vaciada.", "success");
     });
+    return;
+  }
+  const srdLoad = event.target.closest("[data-srd-load]");
+  if (srdLoad) {
+    loadSrdAsEditable(findSrdItem(srdLoad.dataset.srdLoad));
+    return;
+  }
+  const srdEncounter = event.target.closest("[data-srd-encounter]");
+  if (srdEncounter) {
+    const item = findSrdItem(srdEncounter.dataset.srdEncounter);
+    if (item?.kind === "adversary") {
+      encounterState.tier = Math.max(encounterState.tier, Number(item.tier) || 1);
+      addEncounterAdversary(item.id, 1);
+      libraryDialog.close();
+      openEncounterGenerator();
+    }
     return;
   }
   const button = event.target.closest("[data-library-action]");
@@ -2399,6 +2728,197 @@ function handleLibraryClick(event) {
       toast("Bloque eliminado.", "success");
     });
   }
+}
+
+function encounterRoleLabel(role) { return ADVERSARY_ROLE_LABELS[role] || role || "—"; }
+function encounterRoleCost(role) { return ENCOUNTER_ROLE_COSTS[role] ?? 2; }
+function selectedEncounterEntries(selected = encounterState.selected) {
+  return Object.entries(selected).map(([id, units]) => ({ item: SRD_LIBRARY.adversaries.find((adv) => adv.id === id), units: Math.max(0, Number(units) || 0) })).filter((entry) => entry.item && entry.units > 0);
+}
+
+function calculateEncounterBudget(selected = encounterState.selected) {
+  const partySize = numericValue(encounterState.partySize, 4, 1, 10);
+  const base = 3 * partySize + 2;
+  const entries = selectedEncounterEntries(selected);
+  const adjustments = [];
+  const intensity = Number(encounterState.intensity) || 0;
+  if (intensity === -1) adjustments.push({ value: -1, label: "Más fácil o corto" });
+  else if (intensity === 2) adjustments.push({ value: 2, label: "Más difícil o largo" });
+  if (encounterState.damageBoost) adjustments.push({ value: -2, label: "+1d4 (o +2) al daño de todos los adversarios" });
+  const soloCount = entries.filter(({ item }) => item.srdRole === "Solo").reduce((sum, entry) => sum + entry.units, 0);
+  if (soloCount >= 2) adjustments.push({ value: -2, label: "2 o más adversarios Solo" });
+  if (entries.some(({ item }) => Number(item.tier) < Number(encounterState.tier))) adjustments.push({ value: 1, label: "Al menos un adversario de tier inferior" });
+  if (entries.length && !entries.some(({ item }) => ENCOUNTER_HEAVY_ROLES.has(item.srdRole))) adjustments.push({ value: 1, label: "Sin Brutos, Hordas, Líderes ni Solitarios" });
+  const available = Math.max(0, base + adjustments.reduce((sum, item) => sum + item.value, 0));
+  const spent = entries.reduce((sum, { item, units }) => sum + encounterRoleCost(item.srdRole) * units, 0);
+  return { partySize, base, adjustments, available, spent, remaining: available - spent, entries };
+}
+
+function openEncounterGenerator() {
+  if (!encounterDialog) return;
+  encounterPartySize.value = encounterState.partySize;
+  encounterTier.value = encounterState.tier;
+  encounterIntensity.value = encounterState.intensity;
+  encounterDamageBoost.checked = encounterState.damageBoost;
+  renderEncounterRoleFilter();
+  renderEncounterCatalog();
+  renderEncounterSummary();
+  if (!encounterDialog.open) encounterDialog.showModal();
+}
+
+function syncEncounterControls() {
+  encounterState.partySize = numericValue(encounterPartySize?.value, 4, 1, 10);
+  encounterState.tier = numericValue(encounterTier?.value, 1, 1, 4);
+  encounterState.intensity = [-1, 0, 2].includes(Number(encounterIntensity?.value)) ? Number(encounterIntensity.value) : 0;
+  encounterState.damageBoost = Boolean(encounterDamageBoost?.checked);
+  // Remove entries above the selected tier so the generator always respects its catalog rules.
+  Object.keys(encounterState.selected).forEach((id) => {
+    const item = SRD_LIBRARY.adversaries.find((adv) => adv.id === id);
+    if (!item || Number(item.tier) > encounterState.tier) delete encounterState.selected[id];
+  });
+  renderEncounterRoleFilter();
+  renderEncounterCatalog();
+  renderEncounterSummary();
+}
+
+function renderEncounterRoleFilter() {
+  if (!encounterRoleFilter) return;
+  const roles = [...new Set(SRD_LIBRARY.adversaries.filter((item) => Number(item.tier) <= encounterState.tier).map((item) => item.srdRole))].sort((a,b)=>encounterRoleLabel(a).localeCompare(encounterRoleLabel(b), "es"));
+  if (encounterState.roleFilter !== "all" && !roles.includes(encounterState.roleFilter)) encounterState.roleFilter = "all";
+  encounterRoleFilter.innerHTML = [`<button type="button" data-encounter-role="all" aria-pressed="${encounterState.roleFilter === "all"}">Todos</button>`, ...roles.map((role) => `<button type="button" data-encounter-role="${escapeAttr(role)}" aria-pressed="${encounterState.roleFilter === role}">${escapeHtml(encounterRoleLabel(role))} · ${encounterRoleCost(role)} PB</button>`)].join("");
+}
+
+function renderEncounterCatalog() {
+  if (!encounterCatalog) return;
+  const query = stringValue(encounterSearch?.value).trim().toLocaleLowerCase("es");
+  const items = SRD_LIBRARY.adversaries.filter((item) => {
+    if (Number(item.tier) > encounterState.tier) return false;
+    if (encounterState.roleFilter !== "all" && item.srdRole !== encounterState.roleFilter) return false;
+    if (!query) return true;
+    return [item.title, item.description, item.srdRole, ...(item.motives || [])].join(" ").toLocaleLowerCase("es").includes(query);
+  }).sort((a,b) => Number(b.tier)-Number(a.tier) || String(a.title).localeCompare(String(b.title), "en"));
+  encounterCatalog.innerHTML = items.map((item) => {
+    const minionNote = item.srdRole === "Minion" ? `Grupo de ${encounterState.partySize}` : "1 adversario";
+    return `<article class="encounter-catalog-item">
+      <div><div class="encounter-item-kicker">Tier ${item.tier} · ${escapeHtml(encounterRoleLabel(item.srdRole))}</div><h4>${escapeHtml(item.title)}</h4><p>${escapeHtml(item.description || "")}</p></div>
+      <div class="encounter-item-foot"><span>${encounterRoleCost(item.srdRole)} PB · ${minionNote}</span><button type="button" data-encounter-add="${escapeAttr(item.id)}">＋</button></div>
+    </article>`;
+  }).join("") || `<div class="library-empty"><p>No hay adversarios para estos filtros.</p></div>`;
+}
+
+function renderEncounterSummary() {
+  if (!encounterBudget || !encounterSelected) return;
+  const budget = calculateEncounterBudget();
+  const remainingClass = budget.remaining < 0 ? "over" : budget.remaining === 0 ? "exact" : "";
+  encounterBudget.innerHTML = `<div class="encounter-budget-main ${remainingClass}"><div><span>Presupuesto</span><strong>${budget.available} PB</strong></div><div><span>Gastados</span><strong>${budget.spent} PB</strong></div><div><span>Restantes</span><strong>${budget.remaining} PB</strong></div></div>
+    <div class="encounter-budget-breakdown"><span>Base: (3 × ${budget.partySize}) + 2 = <strong>${budget.base} PB</strong></span>${budget.adjustments.map((item)=>`<span>${item.value > 0 ? "+" : ""}${item.value} · ${escapeHtml(item.label)}</span>`).join("") || `<span>Sin ajustes adicionales</span>`}</div>`;
+  if (!budget.entries.length) {
+    encounterSelected.innerHTML = `<div class="encounter-empty"><h3>Encuentro vacío</h3><p>Genera una propuesta o agrega adversarios desde el catálogo.</p></div>`;
+    return;
+  }
+  encounterSelected.innerHTML = `<h3>Encuentro actual</h3>${budget.entries.map(({ item, units }) => {
+    const quantityText = item.srdRole === "Minion" ? `${units * budget.partySize} esbirros · ${units} grupo${units === 1 ? "" : "s"}` : `${units} × ${encounterRoleLabel(item.srdRole)}`;
+    return `<article class="encounter-selected-item"><div><strong>${escapeHtml(item.title)}</strong><span>Tier ${item.tier} · ${escapeHtml(quantityText)} · ${encounterRoleCost(item.srdRole) * units} PB</span></div><div class="encounter-stepper"><button type="button" data-encounter-minus="${escapeAttr(item.id)}" aria-label="Quitar">−</button><span>${units}</span><button type="button" data-encounter-plus="${escapeAttr(item.id)}" aria-label="Agregar">＋</button></div></article>`;
+  }).join("")}`;
+}
+
+function addEncounterAdversary(id, delta = 1) {
+  const item = SRD_LIBRARY.adversaries.find((adv) => adv.id === id);
+  if (!item || Number(item.tier) > encounterState.tier) return false;
+  const current = Number(encounterState.selected[id]) || 0;
+  const next = current + delta;
+  if (next <= 0) delete encounterState.selected[id]; else encounterState.selected[id] = Math.min(20, next);
+  renderEncounterSummary();
+  return true;
+}
+
+function simulateEncounterAddition(selected, item) {
+  const next = { ...selected, [item.id]: (Number(selected[item.id]) || 0) + 1 };
+  const budget = calculateEncounterBudget(next);
+  return { selected: next, budget };
+}
+
+function weightedPick(items) {
+  if (!items.length) return null;
+  const weighted = items.map((item) => ({ item, weight: Number(item.tier) === Number(encounterState.tier) ? 4 : 1.5 }));
+  const total = weighted.reduce((sum, row) => sum + row.weight, 0);
+  let roll = Math.random() * total;
+  for (const row of weighted) { roll -= row.weight; if (roll <= 0) return row.item; }
+  return weighted.at(-1).item;
+}
+
+function generateEncounterProposal() {
+  const pool = SRD_LIBRARY.adversaries.filter((item) => Number(item.tier) <= encounterState.tier);
+  let best = {};
+  let bestScore = -Infinity;
+  for (let trial = 0; trial < 240; trial += 1) {
+    let selected = {};
+    for (let step = 0; step < 18; step += 1) {
+      const feasible = pool.filter((item) => {
+        const simulated = simulateEncounterAddition(selected, item);
+        return simulated.budget.spent <= simulated.budget.available;
+      });
+      if (!feasible.length) break;
+      const item = weightedPick(feasible);
+      if (!item) break;
+      selected[item.id] = (Number(selected[item.id]) || 0) + 1;
+      const budget = calculateEncounterBudget(selected);
+      if (budget.remaining === 0) break;
+      if (step > 1 && Math.random() < 0.08 && budget.remaining <= 2) break;
+    }
+    const budget = calculateEncounterBudget(selected);
+    const roleDiversity = new Set(budget.entries.map((entry) => entry.item.srdRole)).size;
+    const exactTier = budget.entries.filter((entry) => Number(entry.item.tier) === Number(encounterState.tier)).length;
+    const score = budget.spent * 20 - Math.abs(budget.remaining) * 30 + roleDiversity * 2 + exactTier;
+    if (budget.spent <= budget.available && score > bestScore) { bestScore = score; best = selected; }
+    if (budget.remaining === 0 && roleDiversity >= 2) break;
+  }
+  encounterState.selected = best;
+  renderEncounterSummary();
+  toast(Object.keys(best).length ? "Propuesta equilibrada según Puntos de Batalla generada." : "No fue posible generar una propuesta con esos filtros.", Object.keys(best).length ? "success" : "error");
+}
+
+function encounterSummaryText() {
+  const budget = calculateEncounterBudget();
+  const lines = [
+    `Encuentro Daggerheart · Tier ${encounterState.tier}`,
+    `${budget.partySize} PJ · Presupuesto ${budget.available} PB · Gastados ${budget.spent} PB`,
+  ];
+  budget.adjustments.forEach((item) => lines.push(`${item.value > 0 ? "+" : ""}${item.value} PB — ${item.label}`));
+  lines.push("");
+  budget.entries.forEach(({ item, units }) => {
+    const qty = item.srdRole === "Minion" ? `${units * budget.partySize} (${units} grupo${units === 1 ? "" : "s"})` : String(units);
+    lines.push(`- ${item.title} · Tier ${item.tier} · ${encounterRoleLabel(item.srdRole)} · x${qty} · ${encounterRoleCost(item.srdRole) * units} PB`);
+  });
+  return lines.join("\n");
+}
+
+async function copyEncounterSummary() {
+  const text = encounterSummaryText();
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("Resumen del encuentro copiado.", "success");
+  } catch {
+    const area = document.createElement("textarea");
+    area.value = text; document.body.appendChild(area); area.select(); document.execCommand("copy"); area.remove();
+    toast("Resumen del encuentro copiado.", "success");
+  }
+}
+
+function handleEncounterClick(event) {
+  const action = event.target.closest("[data-encounter-action]")?.dataset.encounterAction;
+  if (action === "close") { encounterDialog.close(); return; }
+  if (action === "generate") { generateEncounterProposal(); return; }
+  if (action === "clear") { encounterState.selected = {}; renderEncounterSummary(); return; }
+  if (action === "copy") { copyEncounterSummary(); return; }
+  const role = event.target.closest("[data-encounter-role]")?.dataset.encounterRole;
+  if (role) { encounterState.roleFilter = role; renderEncounterRoleFilter(); renderEncounterCatalog(); return; }
+  const add = event.target.closest("[data-encounter-add]")?.dataset.encounterAdd;
+  if (add) { addEncounterAdversary(add, 1); return; }
+  const plus = event.target.closest("[data-encounter-plus]")?.dataset.encounterPlus;
+  if (plus) { addEncounterAdversary(plus, 1); return; }
+  const minus = event.target.closest("[data-encounter-minus]")?.dataset.encounterMinus;
+  if (minus) { addEncounterAdversary(minus, -1); return; }
 }
 
 function kindLabelEs(kind) {

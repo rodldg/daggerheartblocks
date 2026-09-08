@@ -1,9 +1,10 @@
-const CACHE_NAME = "forja-bloques-v7";
+const CACHE_NAME = "forja-bloques-v8";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./srd-data.js",
   "./manifest.webmanifest",
   "./icon.svg",
 ];

@@ -1,6 +1,54 @@
 # Forja de Bloques para Daggerheart
 
-Versión 7. Aplicación web estática y serverless para crear bloques de **ambientes**, **adversarios** y **misiones** compatibles con Daggerheart. Está diseñada para publicarse directamente en GitHub Pages y no requiere backend, base de datos ni proceso de compilación.
+Versión 8. Aplicación web estática y serverless para crear bloques de **ambientes**, **adversarios** y **misiones** compatibles con Daggerheart. Está diseñada para publicarse directamente en GitHub Pages y no requiere backend, base de datos ni proceso de compilación.
+
+
+## Novedades de la versión 8
+
+### Biblioteca base del Daggerheart SRD
+
+La aplicación incorpora una biblioteca estática y completamente serverless extraída del **Daggerheart SRD 1.0** suministrado durante el desarrollo:
+
+- **129 adversarios**.
+- **19 ambientes**.
+- Filtros por búsqueda, tipo de bloque, Tier y rol/tipo SRD.
+- Los registros SRD se abren como **copias editables**, por lo que la biblioteca base nunca se modifica.
+- Desde un adversario SRD puedes enviarlo directamente al generador de encuentros.
+
+Las etiquetas estructurales de la interfaz se presentan en español (por ejemplo, `Bruiser → Bruto`, `Skulk → Acechador`), mientras que el texto mecánico importado se conserva en inglés para no alterar involuntariamente las reglas. Los datos viven en `srd-data.js`.
+
+### Generador de encuentros balanceados
+
+El botón **Encuentros** abre un constructor basado en las reglas de *Building Balanced Encounters* del SRD. El presupuesto parte de:
+
+```text
+(3 × número de PJ) + 2 Puntos de Batalla
+```
+
+La interfaz aplica los ajustes del SRD y calcula automáticamente los costos por rol. Los Minions se contabilizan como grupos cuyo tamaño es igual al número de PJ. Puedes:
+
+- Elegir Tier y cantidad de PJ.
+- Seleccionar encuentro más fácil/corto, estándar o más difícil/largo.
+- Activar el modificador de daño global de +1d4 / +2.
+- Armar manualmente el encuentro desde la biblioteca SRD.
+- Generar una propuesta automática dentro del presupuesto disponible.
+- Copiar un resumen textual del encuentro.
+
+Consulta `SRD_NOTES.md` para el detalle de reglas y procedencia.
+
+### Texto en negrita
+
+Los campos de texto compatibles admiten Markdown mínimo para negrita:
+
+```text
+Este ataque deja al objetivo **Vulnerable** hasta su próxima acción.
+```
+
+También puedes seleccionar texto y pulsar el botón **B**. La negrita se interpreta en la vista previa y en las exportaciones PNG/PDF, mientras que el JSON conserva el texto como una cadena normal, manteniendo compatibilidad hacia atrás.
+
+### Autoguardado
+
+Al dejar de escribir durante aproximadamente **0,9 segundos**, el bloque actual se crea o actualiza automáticamente en **Mis bloques**. La barra superior indica `Guardando…`, `Autoguardado` o un error. El botón **Guardar** continúa disponible para forzar el guardado inmediatamente.
 
 ## Tipos de bloque
 
@@ -165,9 +213,12 @@ Luego abre `http://localhost:8000`.
 ├── styles.css
 ├── app.js
 ├── service-worker.js
+├── srd-data.js
 ├── manifest.webmanifest
 ├── icon.svg
 ├── .nojekyll
+├── SRD_NOTES.md
+├── VALIDATION.md
 ├── CHANGELOG.md
 ├── ejemplo_adversario_ingredientes.json
 ├── ejemplo_mision.json
@@ -176,8 +227,8 @@ Luego abre `http://localhost:8000`.
 
 ## Privacidad
 
-Todo se procesa dentro del navegador. Las imágenes, textos, biblioteca local, PNG, PDF y JSON no se envían a un servidor.
+Todo se procesa dentro del navegador. Las imágenes, textos, biblioteca local, biblioteca SRD, generador de encuentros, PNG, PDF y JSON no se envían a un servidor.
 
 ## Aviso
 
-Proyecto fan-made y no oficial. No está afiliado, patrocinado ni respaldado por Darrington Press. No se incluyen logotipos, ilustraciones ni recursos propietarios oficiales.
+Proyecto fan-made y no oficial. No está afiliado, patrocinado ni respaldado por Darrington Press. La biblioteca integrada utiliza material del SRD suministrado durante el desarrollo, declarado Public Game Content bajo la Darrington Press Community Gaming License. Revisa dicha licencia antes de redistribuir o publicar el proyecto. No se incluyen ilustraciones ni logotipos oficiales.

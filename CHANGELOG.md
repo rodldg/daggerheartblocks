@@ -1,5 +1,21 @@
 # Historial de cambios
 
+## Versión 8 — Biblioteca SRD, encuentros, negrita y autoguardado
+
+- Incorpora `srd-data.js` con **129 adversarios** y **19 ambientes** extraídos del Daggerheart SRD 1.0 suministrado.
+- Añade una pestaña **SRD** a la biblioteca con búsqueda y filtros por clase de bloque, Tier y rol/tipo.
+- Los registros SRD se cargan siempre como copias editables y conservan referencia de página/fuente.
+- Añade un **Generador de encuentros** basado en Puntos de Batalla del SRD.
+- Implementa presupuesto base `(3 × PJ) + 2`, ajustes de dificultad/composición/daño y costos por rol.
+- Los Minions se contabilizan como grupos iguales al número de PJ.
+- Permite composición manual, propuesta automática balanceada y copia de resumen del encuentro.
+- Añade formato de **negrita** mediante `**texto**` y botón `B` en campos compatibles.
+- El render de Canvas interpreta la negrita en vista previa, PNG y PDF sin cambiar el esquema JSON.
+- Añade autoguardado a **Mis bloques** con debounce de aproximadamente 900 ms después de dejar de escribir.
+- La barra superior muestra el estado del autoguardado y el botón Guardar sigue disponible para guardado inmediato.
+- Mantiene las claves de almacenamiento local y la normalización de JSON de las versiones anteriores.
+- Actualiza la caché PWA a `forja-bloques-v8` e incorpora `srd-data.js` al app shell.
+
 ## Versión 7 — Bloques de misión e intensidad visual
 
 - Añade el nuevo tipo de bloque **Misión**.
