@@ -1,5 +1,17 @@
 # Historial de cambios
 
+## Versión 8.1 — Encuentros custom y scroll del catálogo
+
+- Corrige el scroll del catálogo del generador de encuentros cuando un filtro contiene muchos adversarios.
+- Separa el desplazamiento del catálogo del resto del diálogo en escritorio y mantiene un fallback responsive en pantallas pequeñas.
+- Integra automáticamente los bloques de adversario de **Mis bloques** como adversarios custom utilizables en encuentros.
+- Añade filtros por fuente: Todos, SRD, Mis adversarios y Rápidos.
+- Añade `＋ Custom` para crear un adversario rápido indicando nombre, Tier y rol.
+- Infiere roles SRD desde nombres de tipo habituales en español e inglés y permite corregir el rol/costo desde el propio catálogo.
+- Los adversarios custom participan en el cálculo de presupuesto, ajustes por composición, Minions, Solos y tiers inferiores.
+- Conserva la generación automática basada sólo en la biblioteca SRD; los adversarios custom se agregan manualmente.
+- Actualiza la caché PWA a `forja-bloques-v8-1`.
+
 ## Versión 8 — Biblioteca SRD, encuentros, negrita y autoguardado
 
 - Incorpora `srd-data.js` con **129 adversarios** y **19 ambientes** extraídos del Daggerheart SRD 1.0 suministrado.

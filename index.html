@@ -264,13 +264,55 @@
       <aside class="encounter-catalog">
         <div class="encounter-catalog-heading">
           <div>
-            <h3>Adversarios SRD</h3>
-            <p>Agrega adversarios del tier del grupo o de un tier inferior.</p>
+            <h3>Catálogo de adversarios</h3>
+            <p>Usa adversarios del SRD, tus propios bloques o crea uno rápido para este encuentro.</p>
           </div>
-          <input id="encounterSearch" type="search" placeholder="Buscar adversario…">
+          <div class="encounter-catalog-tools">
+            <input id="encounterSearch" type="search" placeholder="Buscar adversario…">
+            <button class="secondary-button encounter-custom-toggle" type="button" data-encounter-action="toggle-custom">＋ Custom</button>
+          </div>
         </div>
+
+        <div id="encounterCustomForm" class="encounter-custom-form" hidden>
+          <div class="encounter-custom-form-heading">
+            <div><strong>Adversario custom rápido</strong><span>Se usa sólo en este generador. Los bloques guardados aparecen automáticamente como “Mis adversarios”.</span></div>
+          </div>
+          <div class="encounter-custom-grid">
+            <label class="encounter-custom-name">
+              <span>Nombre</span>
+              <input id="encounterCustomName" type="text" maxlength="80" placeholder="Ej. Guardián de las brasas">
+            </label>
+            <label>
+              <span>Tier</span>
+              <select id="encounterCustomTier">
+                <option value="1">Tier 1</option>
+                <option value="2">Tier 2</option>
+                <option value="3">Tier 3</option>
+                <option value="4">Tier 4</option>
+              </select>
+            </label>
+            <label>
+              <span>Rol</span>
+              <select id="encounterCustomRole">
+                <option value="Minion">Esbirro · 1 PB</option>
+                <option value="Social">Social · 1 PB</option>
+                <option value="Support">Apoyo · 1 PB</option>
+                <option value="Horde">Horda · 2 PB</option>
+                <option value="Ranged">A distancia · 2 PB</option>
+                <option value="Skulk">Acechador · 2 PB</option>
+                <option value="Standard" selected>Estándar · 2 PB</option>
+                <option value="Leader">Líder · 3 PB</option>
+                <option value="Bruiser">Bruto · 4 PB</option>
+                <option value="Solo">Solitario · 5 PB</option>
+              </select>
+            </label>
+            <button class="primary-button" type="button" data-encounter-action="add-custom">Agregar al encuentro</button>
+          </div>
+        </div>
+
+        <div class="encounter-source-filter" id="encounterSourceFilter" aria-label="Fuente de adversarios"></div>
         <div class="encounter-role-filter" id="encounterRoleFilter"></div>
-        <div class="encounter-catalog-list" id="encounterCatalog"></div>
+        <div class="encounter-catalog-list" id="encounterCatalog" tabindex="0" aria-label="Lista de adversarios disponibles"></div>
       </aside>
     </div>
 

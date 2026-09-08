@@ -1,7 +1,28 @@
 # Forja de Bloques para Daggerheart
 
-Versión 8. Aplicación web estática y serverless para crear bloques de **ambientes**, **adversarios** y **misiones** compatibles con Daggerheart. Está diseñada para publicarse directamente en GitHub Pages y no requiere backend, base de datos ni proceso de compilación.
+Versión 8.1. Aplicación web estática y serverless para crear bloques de **ambientes**, **adversarios** y **misiones** compatibles con Daggerheart. Está diseñada para publicarse directamente en GitHub Pages y no requiere backend, base de datos ni proceso de compilación.
 
+
+
+## Novedades de la versión 8.1
+
+### Generador de encuentros: catálogo desplazable
+
+- El panel derecho del generador ahora tiene un área de desplazamiento propia y estable.
+- Las listas extensas de adversarios pueden recorrerse completas aunque un rol o filtro devuelva muchas entradas.
+- En pantallas pequeñas el desplazamiento se adapta al diálogo sin dejar contenido inaccesible.
+
+### Adversarios custom en encuentros
+
+El generador ya no está limitado al catálogo SRD:
+
+- **Mis adversarios:** todos los bloques de adversario guardados en la biblioteca local aparecen automáticamente en el catálogo del generador.
+- **Custom rápido:** el botón `＋ Custom` permite crear directamente un adversario de encuentro indicando nombre, Tier y rol, sin tener que construir primero un statblock completo. Estos adversarios rápidos también pueden eliminarse desde el catálogo.
+- Los adversarios custom usan exactamente los mismos costos de Puntos de Batalla por rol que los adversarios SRD.
+- El rol se infiere automáticamente desde tipos habituales en español o inglés (`Solitario`, `Bruto`, `Horda`, `Acechador`, etc.). Si el tipo no coincide con un rol conocido, se usa `Estándar` como valor inicial y la interfaz permite corregirlo.
+- El rol/costo de cualquier adversario custom puede cambiarse directamente desde el catálogo y el presupuesto se recalcula al instante.
+- Los filtros de fuente permiten alternar entre **Todos**, **SRD**, **Mis adversarios** y **Rápidos**.
+- La propuesta automática sigue usando sólo adversarios SRD para conservar el comportamiento determinable de la versión 8; los custom se añaden manualmente.
 
 ## Novedades de la versión 8
 

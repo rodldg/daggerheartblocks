@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = 8;
+const APP_VERSION = 8.1;
 const APP_THEME_KEY = "forja-daggerheart-app-theme-v1";
 const DEFAULT_BLOCK_THEME = "bruma-menta";
 const AUTOSAVE_KEY = "forja-daggerheart-autosave-v1";
@@ -337,7 +337,10 @@ let encounterState = {
   intensity: 0,
   damageBoost: false,
   roleFilter: "all",
+  sourceFilter: "all",
   selected: {},
+  roleOverrides: {},
+  customItems: {},
 };
 
 const editorForm = document.getElementById("editorForm");
@@ -368,7 +371,12 @@ const encounterBudget = document.getElementById("encounterBudget");
 const encounterSelected = document.getElementById("encounterSelected");
 const encounterSearch = document.getElementById("encounterSearch");
 const encounterRoleFilter = document.getElementById("encounterRoleFilter");
+const encounterSourceFilter = document.getElementById("encounterSourceFilter");
 const encounterCatalog = document.getElementById("encounterCatalog");
+const encounterCustomForm = document.getElementById("encounterCustomForm");
+const encounterCustomName = document.getElementById("encounterCustomName");
+const encounterCustomTier = document.getElementById("encounterCustomTier");
+const encounterCustomRole = document.getElementById("encounterCustomRole");
 
 init();
 
@@ -635,6 +643,7 @@ function bindGlobalEvents() {
     control?.addEventListener("change", () => activeLibraryTab === "srd" && renderSrdLibrary());
   });
   encounterDialog?.addEventListener("click", handleEncounterClick);
+  encounterDialog?.addEventListener("change", handleEncounterChange);
   [encounterPartySize, encounterTier, encounterIntensity, encounterDamageBoost].forEach((control) => {
     control?.addEventListener("input", syncEncounterControls);
     control?.addEventListener("change", syncEncounterControls);
@@ -2732,8 +2741,75 @@ function handleLibraryClick(event) {
 
 function encounterRoleLabel(role) { return ADVERSARY_ROLE_LABELS[role] || role || "—"; }
 function encounterRoleCost(role) { return ENCOUNTER_ROLE_COSTS[role] ?? 2; }
+
+function encounterRoleOptions(selectedRole = "Standard") {
+  return Object.keys(ENCOUNTER_ROLE_COSTS).map((role) => `<option value="${escapeAttr(role)}" ${role === selectedRole ? "selected" : ""}>${escapeHtml(encounterRoleLabel(role))} · ${encounterRoleCost(role)} PB</option>`).join("");
+}
+
+function normalizedEncounterRoleText(value) {
+  return stringValue(value).trim().toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function inferEncounterRole(value) {
+  const role = normalizedEncounterRoleText(value);
+  const aliases = {
+    minion: "Minion", esbirro: "Minion", esbirros: "Minion",
+    social: "Social",
+    support: "Support", apoyo: "Support", soporte: "Support",
+    horde: "Horde", horda: "Horde",
+    ranged: "Ranged", "a distancia": "Ranged", distancia: "Ranged",
+    skulk: "Skulk", acechador: "Skulk", acechadora: "Skulk",
+    standard: "Standard", estandar: "Standard",
+    leader: "Leader", lider: "Leader",
+    bruiser: "Bruiser", bruto: "Bruiser", bruta: "Bruiser",
+    solo: "Solo", solitario: "Solo", solitaria: "Solo",
+  };
+  if (aliases[role]) return aliases[role];
+  for (const [alias, canonical] of Object.entries(aliases)) {
+    if (role === alias || role.startsWith(`${alias} `) || role.endsWith(` ${alias}`)) return canonical;
+  }
+  return null;
+}
+
+function localEncounterAdversaries() {
+  return loadLibrary().filter((record) => record?.kind === "adversary" && record?.data).map((record) => {
+    const draft = normalizeDraft(record.data, "adversary");
+    const id = `local:${record.id}`;
+    const inferredRole = inferEncounterRole(draft.type);
+    const role = encounterState.roleOverrides[id] || inferredRole || "Standard";
+    return {
+      id,
+      sourceRecordId: record.id,
+      encounterSource: "local",
+      title: draft.title || record.title || "Adversario custom",
+      description: draft.description || "",
+      tier: numericValue(draft.tier, 1, 1, 4),
+      srdRole: role,
+      originalType: draft.type || "",
+      roleWasInferred: Boolean(inferredRole),
+      motives: arrayValue(draft.motives),
+    };
+  });
+}
+
+function quickEncounterAdversaries() {
+  return Object.values(encounterState.customItems || {}).map((item) => ({ ...item, encounterSource: "quick" }));
+}
+
+function allEncounterAdversaries() {
+  const srd = arrayValue(SRD_LIBRARY.adversaries).map((item) => ({ ...item, encounterSource: "srd" }));
+  return [...srd, ...localEncounterAdversaries(), ...quickEncounterAdversaries()];
+}
+
+function resolveEncounterAdversary(id) {
+  if (stringValue(id).startsWith("local:")) return localEncounterAdversaries().find((item) => item.id === id) || null;
+  if (stringValue(id).startsWith("quick:")) return encounterState.customItems[id] ? { ...encounterState.customItems[id], encounterSource: "quick" } : null;
+  const item = SRD_LIBRARY.adversaries.find((adv) => adv.id === id);
+  return item ? { ...item, encounterSource: "srd" } : null;
+}
+
 function selectedEncounterEntries(selected = encounterState.selected) {
-  return Object.entries(selected).map(([id, units]) => ({ item: SRD_LIBRARY.adversaries.find((adv) => adv.id === id), units: Math.max(0, Number(units) || 0) })).filter((entry) => entry.item && entry.units > 0);
+  return Object.entries(selected).map(([id, units]) => ({ item: resolveEncounterAdversary(id), units: Math.max(0, Number(units) || 0) })).filter((entry) => entry.item && entry.units > 0);
 }
 
 function calculateEncounterBudget(selected = encounterState.selected) {
@@ -2756,10 +2832,14 @@ function calculateEncounterBudget(selected = encounterState.selected) {
 
 function openEncounterGenerator() {
   if (!encounterDialog) return;
+  // Make sure a recently edited custom adversary is available in “Mis adversarios” before opening the generator.
+  flushLibraryAutosave();
   encounterPartySize.value = encounterState.partySize;
   encounterTier.value = encounterState.tier;
   encounterIntensity.value = encounterState.intensity;
   encounterDamageBoost.checked = encounterState.damageBoost;
+  if (encounterCustomTier) encounterCustomTier.value = encounterState.tier;
+  renderEncounterSourceFilter();
   renderEncounterRoleFilter();
   renderEncounterCatalog();
   renderEncounterSummary();
@@ -2771,39 +2851,66 @@ function syncEncounterControls() {
   encounterState.tier = numericValue(encounterTier?.value, 1, 1, 4);
   encounterState.intensity = [-1, 0, 2].includes(Number(encounterIntensity?.value)) ? Number(encounterIntensity.value) : 0;
   encounterState.damageBoost = Boolean(encounterDamageBoost?.checked);
-  // Remove entries above the selected tier so the generator always respects its catalog rules.
+  if (encounterCustomTier) encounterCustomTier.value = encounterState.tier;
+  // Remove entries above the selected tier so the encounter always respects the selected party tier.
   Object.keys(encounterState.selected).forEach((id) => {
-    const item = SRD_LIBRARY.adversaries.find((adv) => adv.id === id);
+    const item = resolveEncounterAdversary(id);
     if (!item || Number(item.tier) > encounterState.tier) delete encounterState.selected[id];
   });
+  renderEncounterSourceFilter();
   renderEncounterRoleFilter();
   renderEncounterCatalog();
   renderEncounterSummary();
 }
 
+function renderEncounterSourceFilter() {
+  if (!encounterSourceFilter) return;
+  const hasLocal = localEncounterAdversaries().length > 0;
+  const hasQuick = quickEncounterAdversaries().length > 0;
+  const allowed = new Set(["all", "srd", ...(hasLocal ? ["local"] : []), ...(hasQuick ? ["quick"] : [])]);
+  if (!allowed.has(encounterState.sourceFilter)) encounterState.sourceFilter = "all";
+  const options = [
+    ["all", "Todos"],
+    ["srd", "SRD"],
+    ...(hasLocal ? [["local", "Mis adversarios"]] : []),
+    ...(hasQuick ? [["quick", "Rápidos"]] : []),
+  ];
+  encounterSourceFilter.innerHTML = options.map(([value, label]) => `<button type="button" data-encounter-source="${value}" aria-pressed="${encounterState.sourceFilter === value}">${escapeHtml(label)}</button>`).join("");
+}
+
+function filteredEncounterAdversaries({ applySearch = true } = {}) {
+  const query = applySearch ? stringValue(encounterSearch?.value).trim().toLocaleLowerCase("es") : "";
+  return allEncounterAdversaries().filter((item) => {
+    if (Number(item.tier) > encounterState.tier) return false;
+    if (encounterState.sourceFilter !== "all" && item.encounterSource !== encounterState.sourceFilter) return false;
+    if (encounterState.roleFilter !== "all" && item.srdRole !== encounterState.roleFilter) return false;
+    if (!query) return true;
+    return [item.title, item.description, item.srdRole, item.originalType, ...(item.motives || [])].join(" ").toLocaleLowerCase("es").includes(query);
+  });
+}
+
 function renderEncounterRoleFilter() {
   if (!encounterRoleFilter) return;
-  const roles = [...new Set(SRD_LIBRARY.adversaries.filter((item) => Number(item.tier) <= encounterState.tier).map((item) => item.srdRole))].sort((a,b)=>encounterRoleLabel(a).localeCompare(encounterRoleLabel(b), "es"));
+  const roles = [...new Set(allEncounterAdversaries().filter((item) => Number(item.tier) <= encounterState.tier).map((item) => item.srdRole))].sort((a,b)=>encounterRoleLabel(a).localeCompare(encounterRoleLabel(b), "es"));
   if (encounterState.roleFilter !== "all" && !roles.includes(encounterState.roleFilter)) encounterState.roleFilter = "all";
   encounterRoleFilter.innerHTML = [`<button type="button" data-encounter-role="all" aria-pressed="${encounterState.roleFilter === "all"}">Todos</button>`, ...roles.map((role) => `<button type="button" data-encounter-role="${escapeAttr(role)}" aria-pressed="${encounterState.roleFilter === role}">${escapeHtml(encounterRoleLabel(role))} · ${encounterRoleCost(role)} PB</button>`)].join("");
 }
 
 function renderEncounterCatalog() {
   if (!encounterCatalog) return;
-  const query = stringValue(encounterSearch?.value).trim().toLocaleLowerCase("es");
-  const items = SRD_LIBRARY.adversaries.filter((item) => {
-    if (Number(item.tier) > encounterState.tier) return false;
-    if (encounterState.roleFilter !== "all" && item.srdRole !== encounterState.roleFilter) return false;
-    if (!query) return true;
-    return [item.title, item.description, item.srdRole, ...(item.motives || [])].join(" ").toLocaleLowerCase("es").includes(query);
-  }).sort((a,b) => Number(b.tier)-Number(a.tier) || String(a.title).localeCompare(String(b.title), "en"));
+  const items = filteredEncounterAdversaries().sort((a,b) => Number(b.tier)-Number(a.tier) || String(a.title).localeCompare(String(b.title), "es"));
   encounterCatalog.innerHTML = items.map((item) => {
     const minionNote = item.srdRole === "Minion" ? `Grupo de ${encounterState.partySize}` : "1 adversario";
-    return `<article class="encounter-catalog-item">
-      <div><div class="encounter-item-kicker">Tier ${item.tier} · ${escapeHtml(encounterRoleLabel(item.srdRole))}</div><h4>${escapeHtml(item.title)}</h4><p>${escapeHtml(item.description || "")}</p></div>
-      <div class="encounter-item-foot"><span>${encounterRoleCost(item.srdRole)} PB · ${minionNote}</span><button type="button" data-encounter-add="${escapeAttr(item.id)}">＋</button></div>
+    const sourceLabel = item.encounterSource === "srd" ? "SRD" : item.encounterSource === "local" ? "MI BLOQUE" : "RÁPIDO";
+    const editableRole = item.encounterSource !== "srd";
+    const roleControl = editableRole ? `<label class="encounter-custom-role"><span>Rol / costo</span><select data-encounter-custom-role="${escapeAttr(item.id)}">${encounterRoleOptions(item.srdRole)}</select></label>` : "";
+    const roleWarning = item.encounterSource === "local" && !item.roleWasInferred && !encounterState.roleOverrides[item.id] ? `<span class="encounter-role-warning">Tipo “${escapeHtml(item.originalType || "sin tipo")}” no coincide con un rol SRD; se usa Estándar hasta que lo cambies.</span>` : "";
+    return `<article class="encounter-catalog-item" data-encounter-source-item="${escapeAttr(item.encounterSource)}">
+      <div><div class="encounter-item-kicker"><span>${sourceLabel}</span> · Tier ${item.tier} · ${escapeHtml(encounterRoleLabel(item.srdRole))}</div><h4>${escapeHtml(item.title)}</h4><p>${escapeHtml(item.description || "")}</p>${roleWarning}</div>
+      ${roleControl}
+      <div class="encounter-item-foot"><span>${encounterRoleCost(item.srdRole)} PB · ${minionNote}</span><div class="encounter-item-actions">${item.encounterSource === "quick" ? `<button type="button" class="encounter-delete-quick" data-encounter-delete-custom="${escapeAttr(item.id)}" aria-label="Eliminar adversario custom rápido">×</button>` : ""}<button type="button" data-encounter-add="${escapeAttr(item.id)}" aria-label="Agregar ${escapeAttr(item.title)} al encuentro">＋</button></div></div>
     </article>`;
-  }).join("") || `<div class="library-empty"><p>No hay adversarios para estos filtros.</p></div>`;
+  }).join("") || `<div class="library-empty encounter-catalog-empty"><p>No hay adversarios para estos filtros.</p></div>`;
 }
 
 function renderEncounterSummary() {
@@ -2818,18 +2925,37 @@ function renderEncounterSummary() {
   }
   encounterSelected.innerHTML = `<h3>Encuentro actual</h3>${budget.entries.map(({ item, units }) => {
     const quantityText = item.srdRole === "Minion" ? `${units * budget.partySize} esbirros · ${units} grupo${units === 1 ? "" : "s"}` : `${units} × ${encounterRoleLabel(item.srdRole)}`;
-    return `<article class="encounter-selected-item"><div><strong>${escapeHtml(item.title)}</strong><span>Tier ${item.tier} · ${escapeHtml(quantityText)} · ${encounterRoleCost(item.srdRole) * units} PB</span></div><div class="encounter-stepper"><button type="button" data-encounter-minus="${escapeAttr(item.id)}" aria-label="Quitar">−</button><span>${units}</span><button type="button" data-encounter-plus="${escapeAttr(item.id)}" aria-label="Agregar">＋</button></div></article>`;
+    const sourceLabel = item.encounterSource === "srd" ? "SRD" : "Custom";
+    return `<article class="encounter-selected-item"><div><strong>${escapeHtml(item.title)}</strong><span>${sourceLabel} · Tier ${item.tier} · ${escapeHtml(quantityText)} · ${encounterRoleCost(item.srdRole) * units} PB</span></div><div class="encounter-stepper"><button type="button" data-encounter-minus="${escapeAttr(item.id)}" aria-label="Quitar">−</button><span>${units}</span><button type="button" data-encounter-plus="${escapeAttr(item.id)}" aria-label="Agregar">＋</button></div></article>`;
   }).join("")}`;
 }
 
 function addEncounterAdversary(id, delta = 1) {
-  const item = SRD_LIBRARY.adversaries.find((adv) => adv.id === id);
+  const item = resolveEncounterAdversary(id);
   if (!item || Number(item.tier) > encounterState.tier) return false;
   const current = Number(encounterState.selected[id]) || 0;
   const next = current + delta;
   if (next <= 0) delete encounterState.selected[id]; else encounterState.selected[id] = Math.min(20, next);
   renderEncounterSummary();
   return true;
+}
+
+function addQuickEncounterAdversary() {
+  const title = stringValue(encounterCustomName?.value).trim().slice(0, 80);
+  const tier = numericValue(encounterCustomTier?.value, encounterState.tier, 1, 4);
+  const role = ENCOUNTER_ROLE_COSTS[encounterCustomRole?.value] !== undefined ? encounterCustomRole.value : "Standard";
+  if (!title) { toast("Escribe un nombre para el adversario custom.", "error"); encounterCustomName?.focus(); return; }
+  if (tier > encounterState.tier) { toast(`Ese adversario es Tier ${tier}; cambia el encuentro a Tier ${tier} o inferioriza su Tier.`, "error"); return; }
+  const id = `quick:${crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
+  encounterState.customItems[id] = { id, title, description: "Adversario custom de encuentro.", tier, srdRole: role, motives: [] };
+  encounterState.selected[id] = 1;
+  if (encounterCustomName) encounterCustomName.value = "";
+  if (encounterCustomForm) encounterCustomForm.hidden = true;
+  renderEncounterSourceFilter();
+  renderEncounterRoleFilter();
+  renderEncounterCatalog();
+  renderEncounterSummary();
+  toast("Adversario custom agregado al encuentro.", "success");
 }
 
 function simulateEncounterAddition(selected, item) {
@@ -2848,6 +2974,7 @@ function weightedPick(items) {
 }
 
 function generateEncounterProposal() {
+  // Preserve the original SRD generator behavior. Custom adversaries are available for manual composition.
   const pool = SRD_LIBRARY.adversaries.filter((item) => Number(item.tier) <= encounterState.tier);
   let best = {};
   let bestScore = -Infinity;
@@ -2875,7 +3002,7 @@ function generateEncounterProposal() {
   }
   encounterState.selected = best;
   renderEncounterSummary();
-  toast(Object.keys(best).length ? "Propuesta equilibrada según Puntos de Batalla generada." : "No fue posible generar una propuesta con esos filtros.", Object.keys(best).length ? "success" : "error");
+  toast(Object.keys(best).length ? "Propuesta equilibrada SRD generada. Puedes complementarla con adversarios custom." : "No fue posible generar una propuesta con esos filtros.", Object.keys(best).length ? "success" : "error");
 }
 
 function encounterSummaryText() {
@@ -2888,7 +3015,8 @@ function encounterSummaryText() {
   lines.push("");
   budget.entries.forEach(({ item, units }) => {
     const qty = item.srdRole === "Minion" ? `${units * budget.partySize} (${units} grupo${units === 1 ? "" : "s"})` : String(units);
-    lines.push(`- ${item.title} · Tier ${item.tier} · ${encounterRoleLabel(item.srdRole)} · x${qty} · ${encounterRoleCost(item.srdRole) * units} PB`);
+    const source = item.encounterSource === "srd" ? "SRD" : "Custom";
+    lines.push(`- ${item.title} · ${source} · Tier ${item.tier} · ${encounterRoleLabel(item.srdRole)} · x${qty} · ${encounterRoleCost(item.srdRole) * units} PB`);
   });
   return lines.join("\n");
 }
@@ -2905,14 +3033,43 @@ async function copyEncounterSummary() {
   }
 }
 
+function handleEncounterChange(event) {
+  const roleSelect = event.target.closest("[data-encounter-custom-role]");
+  if (!roleSelect) return;
+  const id = roleSelect.dataset.encounterCustomRole;
+  const role = ENCOUNTER_ROLE_COSTS[roleSelect.value] !== undefined ? roleSelect.value : "Standard";
+  if (stringValue(id).startsWith("quick:") && encounterState.customItems[id]) encounterState.customItems[id].srdRole = role;
+  else encounterState.roleOverrides[id] = role;
+  renderEncounterRoleFilter();
+  renderEncounterCatalog();
+  renderEncounterSummary();
+}
+
 function handleEncounterClick(event) {
   const action = event.target.closest("[data-encounter-action]")?.dataset.encounterAction;
   if (action === "close") { encounterDialog.close(); return; }
   if (action === "generate") { generateEncounterProposal(); return; }
   if (action === "clear") { encounterState.selected = {}; renderEncounterSummary(); return; }
   if (action === "copy") { copyEncounterSummary(); return; }
+  if (action === "toggle-custom") {
+    if (encounterCustomForm) encounterCustomForm.hidden = !encounterCustomForm.hidden;
+    if (encounterCustomForm && !encounterCustomForm.hidden) encounterCustomName?.focus();
+    return;
+  }
+  if (action === "add-custom") { addQuickEncounterAdversary(); return; }
+  const source = event.target.closest("[data-encounter-source]")?.dataset.encounterSource;
+  if (source) { encounterState.sourceFilter = source; renderEncounterSourceFilter(); renderEncounterCatalog(); return; }
   const role = event.target.closest("[data-encounter-role]")?.dataset.encounterRole;
   if (role) { encounterState.roleFilter = role; renderEncounterRoleFilter(); renderEncounterCatalog(); return; }
+  const deleteCustom = event.target.closest("[data-encounter-delete-custom]")?.dataset.encounterDeleteCustom;
+  if (deleteCustom && encounterState.customItems[deleteCustom]) {
+    delete encounterState.customItems[deleteCustom];
+    delete encounterState.selected[deleteCustom];
+    delete encounterState.roleOverrides[deleteCustom];
+    renderEncounterSourceFilter(); renderEncounterRoleFilter(); renderEncounterCatalog(); renderEncounterSummary();
+    toast("Adversario custom rápido eliminado.", "success");
+    return;
+  }
   const add = event.target.closest("[data-encounter-add]")?.dataset.encounterAdd;
   if (add) { addEncounterAdversary(add, 1); return; }
   const plus = event.target.closest("[data-encounter-plus]")?.dataset.encounterPlus;
