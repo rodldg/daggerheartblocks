@@ -174,6 +174,41 @@
       <button type="button" role="tab" aria-selected="false" data-library-tab="srd">SRD base</button>
     </div>
 
+    <div class="library-filters library-local-filters" data-local-library-filters>
+      <label>
+        <span>Buscar en mis bloques</span>
+        <input type="search" id="localLibrarySearch" placeholder="Título, resumen, rasgo…" autocomplete="off">
+      </label>
+      <label>
+        <span>Tipo de bloque</span>
+        <select id="localLibraryKindFilter">
+          <option value="all">Todos</option>
+          <option value="adversary">Adversarios</option>
+          <option value="environment">Ambientes</option>
+          <option value="mission">Misiones</option>
+        </select>
+      </label>
+      <label>
+        <span>Tier</span>
+        <select id="localLibraryTierFilter">
+          <option value="all">Todos</option>
+          <option value="1">Tier 1</option>
+          <option value="2">Tier 2</option>
+          <option value="3">Tier 3</option>
+          <option value="4">Tier 4</option>
+        </select>
+      </label>
+      <label>
+        <span>Ordenar</span>
+        <select id="localLibrarySortFilter">
+          <option value="recent">Más recientes</option>
+          <option value="oldest">Más antiguos</option>
+          <option value="title">Título A–Z</option>
+          <option value="title-desc">Título Z–A</option>
+        </select>
+      </label>
+    </div>
+
     <div class="library-filters" data-library-filters hidden>
       <label>
         <span>Buscar</span>

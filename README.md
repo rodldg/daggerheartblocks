@@ -1,8 +1,23 @@
 # Forja de Bloques para Daggerheart
 
-Versión 8.1. Aplicación web estática y serverless para crear bloques de **ambientes**, **adversarios** y **misiones** compatibles con Daggerheart. Está diseñada para publicarse directamente en GitHub Pages y no requiere backend, base de datos ni proceso de compilación.
+Versión 8.2. Aplicación web estática y serverless para crear bloques de **ambientes**, **adversarios** y **misiones** compatibles con Daggerheart. Está diseñada para publicarse directamente en GitHub Pages y no requiere backend, base de datos ni proceso de compilación.
 
 
+
+## Novedades de la versión 8.2
+
+### Filtros para Mis bloques
+
+La pestaña **Mis bloques** de la biblioteca ahora incluye filtros independientes para encontrar rápidamente contenido personal cuando la biblioteca crece:
+
+- **Búsqueda de texto** por título y contenido del bloque (resumen, descripción, rasgos, impulsos y texto de misión).
+- **Tipo de bloque**: Todos, Adversarios, Ambientes o Misiones.
+- **Tier**: Todos o Tier 1–4. Al elegir un Tier, las misiones quedan fuera porque no poseen Tier.
+- **Orden**: Más recientes, Más antiguos, Título A–Z o Título Z–A.
+- El pie de la biblioteca indica cuántos resultados se están mostrando respecto del total guardado.
+- Las imágenes embebidas se excluyen del índice de búsqueda para que filtrar siga siendo rápido incluso con muchos bloques ilustrados.
+
+Los filtros sólo afectan la visualización de la biblioteca: no modifican, eliminan ni reordenan los datos guardados.
 
 ## Novedades de la versión 8.1
 

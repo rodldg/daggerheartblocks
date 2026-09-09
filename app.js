@@ -358,6 +358,10 @@ const confirmMessage = document.getElementById("confirmMessage");
 const toastRegion = document.getElementById("toastRegion");
 const autosaveStatus = document.getElementById("autosaveStatus");
 const libraryFooterText = document.getElementById("libraryFooterText");
+const localLibrarySearch = document.getElementById("localLibrarySearch");
+const localLibraryKindFilter = document.getElementById("localLibraryKindFilter");
+const localLibraryTierFilter = document.getElementById("localLibraryTierFilter");
+const localLibrarySortFilter = document.getElementById("localLibrarySortFilter");
 const srdSearch = document.getElementById("srdSearch");
 const srdKindFilter = document.getElementById("srdKindFilter");
 const srdTierFilter = document.getElementById("srdTierFilter");
@@ -638,6 +642,10 @@ function bindGlobalEvents() {
 
   jsonFileInput.addEventListener("change", importJsonFile);
   libraryDialog.addEventListener("click", handleLibraryClick);
+  [localLibrarySearch, localLibraryKindFilter, localLibraryTierFilter, localLibrarySortFilter].forEach((control) => {
+    control?.addEventListener("input", () => activeLibraryTab === "local" && renderLocalLibrary());
+    control?.addEventListener("change", () => activeLibraryTab === "local" && renderLocalLibrary());
+  });
   [srdSearch, srdKindFilter, srdTierFilter, srdRoleFilter].forEach((control) => {
     control?.addEventListener("input", () => activeLibraryTab === "srd" && renderSrdLibrary());
     control?.addEventListener("change", () => activeLibraryTab === "srd" && renderSrdLibrary());
@@ -2571,24 +2579,102 @@ function librarySourceItems() {
 function renderLibrary() {
   const tabs = libraryDialog.querySelectorAll("[data-library-tab]");
   tabs.forEach((tab) => tab.setAttribute("aria-selected", tab.dataset.libraryTab === activeLibraryTab ? "true" : "false"));
-  const filters = libraryDialog.querySelector("[data-library-filters]");
+  const localFilters = libraryDialog.querySelector("[data-local-library-filters]");
+  const srdFilters = libraryDialog.querySelector("[data-library-filters]");
   const clearButton = libraryDialog.querySelector('[data-dialog-action="clear"]');
-  if (filters) filters.hidden = activeLibraryTab !== "srd";
+  if (localFilters) localFilters.hidden = activeLibraryTab !== "local";
+  if (srdFilters) srdFilters.hidden = activeLibraryTab !== "srd";
   if (clearButton) clearButton.hidden = activeLibraryTab === "srd";
   if (activeLibraryTab === "srd") renderSrdLibrary();
   else renderLocalLibrary();
 }
 
+function normalizeLibrarySearchText(value) {
+  return stringValue(value)
+    .toLocaleLowerCase("es")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function collectLibrarySearchStrings(value, bucket = [], key = "") {
+  const blockedKeys = new Set(["image", "imageData", "imageSrc", "currentId"]);
+  if (blockedKeys.has(key)) return bucket;
+  if (typeof value === "string") {
+    if (!value.startsWith("data:image/")) bucket.push(value);
+    return bucket;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    bucket.push(String(value));
+    return bucket;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectLibrarySearchStrings(entry, bucket));
+    return bucket;
+  }
+  if (value && typeof value === "object") {
+    Object.entries(value).forEach(([childKey, childValue]) => collectLibrarySearchStrings(childValue, bucket, childKey));
+  }
+  return bucket;
+}
+
+function localLibrarySearchHaystack(record) {
+  return normalizeLibrarySearchText([
+    record?.title,
+    kindLabelEs(record?.kind),
+    ...collectLibrarySearchStrings(record?.data),
+  ].filter(Boolean).join(" "));
+}
+
+function localLibrarySecondaryLabel(item) {
+  const data = item?.data || {};
+  if (item?.kind === "mission") {
+    const missionType = stringValue(data.type).trim();
+    return [kindLabelEs(item.kind), missionType, formatDate(item.updatedAt)].filter(Boolean).join(" · ");
+  }
+  const tier = Number(data.tier);
+  return [kindLabelEs(item?.kind), Number.isFinite(tier) && tier > 0 ? `Tier ${tier}` : "", formatDate(item?.updatedAt)].filter(Boolean).join(" · ");
+}
+
 function renderLocalLibrary() {
-  const library = loadLibrary().sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-  if (libraryFooterText) libraryFooterText.textContent = "Tus bloques se autoguardan únicamente en este navegador.";
-  if (!library.length) {
+  const allItems = loadLibrary();
+  const query = normalizeLibrarySearchText(localLibrarySearch?.value);
+  const kind = localLibraryKindFilter?.value || "all";
+  const tier = localLibraryTierFilter?.value || "all";
+  const sort = localLibrarySortFilter?.value || "recent";
+
+  const library = allItems.filter((item) => {
+    if (kind !== "all" && item.kind !== kind) return false;
+    if (tier !== "all" && Number(item?.data?.tier) !== Number(tier)) return false;
+    if (query && !localLibrarySearchHaystack(item).includes(query)) return false;
+    return true;
+  });
+
+  library.sort((a, b) => {
+    if (sort === "oldest") return String(a.updatedAt).localeCompare(String(b.updatedAt));
+    if (sort === "title") return String(a.title || "").localeCompare(String(b.title || ""), "es", { sensitivity: "base" });
+    if (sort === "title-desc") return String(b.title || "").localeCompare(String(a.title || ""), "es", { sensitivity: "base" });
+    return String(b.updatedAt).localeCompare(String(a.updatedAt));
+  });
+
+  if (libraryFooterText) {
+    libraryFooterText.textContent = library.length === allItems.length
+      ? `${allItems.length} bloque${allItems.length === 1 ? "" : "s"} personal${allItems.length === 1 ? "" : "es"} · autoguardados únicamente en este navegador.`
+      : `Mostrando ${library.length} de ${allItems.length} bloques personales.`;
+  }
+
+  if (!allItems.length) {
     libraryList.innerHTML = `<div class="library-empty"><p>No hay bloques guardados todavía.</p><p>Empieza a escribir: el bloque se guardará automáticamente al detenerte un momento.</p></div>`;
+    return;
+  }
+  if (!library.length) {
+    libraryList.innerHTML = `<div class="library-empty"><p>No encontramos bloques personales con esos filtros.</p><p>Prueba otra búsqueda, tipo de bloque o Tier.</p></div>`;
     return;
   }
   libraryList.innerHTML = library.map((item) => `
     <article class="library-item">
-      <div><h3>${escapeHtml(item.title || "Sin título")}</h3><p>${kindLabelEs(item.kind)} · ${formatDate(item.updatedAt)}</p></div>
+      <div><h3>${escapeHtml(item.title || "Sin título")}</h3><p>${escapeHtml(localLibrarySecondaryLabel(item))}</p></div>
       <div class="library-actions">
         <button type="button" data-library-action="load" data-id="${escapeAttr(item.id)}">Abrir</button>
         <button type="button" class="delete" data-library-action="delete" data-id="${escapeAttr(item.id)}">Eliminar</button>

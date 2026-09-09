@@ -1400,3 +1400,8 @@ input[type="range"] { width: 100%; accent-color: var(--gold); }
   background: transparent;
 }
 .encounter-item-foot .encounter-delete-quick:hover { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 62%, var(--line)); }
+
+/* v8.2 · filtros de biblioteca personal */
+.library-local-filters input[type="search"] { min-width: 0; }
+.library-local-filters select { width: 100%; }
+.library-local-filters:focus-within { position: relative; z-index: 1; }

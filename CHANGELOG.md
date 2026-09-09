@@ -1,5 +1,16 @@
 # Historial de cambios
 
+## Versión 8.2 — Filtros para la biblioteca personal
+
+- Añade búsqueda de texto en **Mis bloques** por título y contenido relevante del bloque.
+- Añade filtro por tipo: Adversario, Ambiente o Misión.
+- Añade filtro por Tier 1–4 para adversarios y ambientes.
+- Añade ordenamiento por fecha de actualización y título.
+- Muestra el número de resultados visibles respecto del total de bloques personales guardados.
+- Excluye imágenes Data URL del índice de búsqueda para evitar degradación de rendimiento con bibliotecas grandes.
+- Mantiene intactos el formato JSON, las claves de `localStorage` y la compatibilidad con las versiones anteriores.
+- Actualiza la caché PWA a `forja-bloques-v8-2`.
+
 ## Versión 8.1 — Encuentros custom y scroll del catálogo
 
 - Corrige el scroll del catálogo del generador de encuentros cuando un filtro contiene muchos adversarios.
